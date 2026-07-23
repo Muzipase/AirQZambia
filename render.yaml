@@ -1,9 +1,9 @@
 services:
   - type: web
-    name: air-quality-api
+    name: air-quality-hybrid-framework
     runtime: python
-    pythonVersion: "3.13"
-    buildCommand: apt-get update && apt-get install -y build-essential && pip install -r requirements.txt
+    pythonVersion: "3.12"
+    buildCommand: pip install -r requirements.txt
     startCommand: uvicorn api:app --host 0.0.0.0 --port $PORT
     envVars:
       - key: CORS_ORIGINS
