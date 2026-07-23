@@ -125,11 +125,17 @@ def _fetch_weather_hourly(
         "timezone": "Africa/Lusaka",
         "forecast_days": forecast_days,
     }
+    session = requests.Session()
     for attempt in range(3):
         try:
-            response = requests.get(OPENMETEO_WEATHER_URL, params=params, timeout=30)
+            logger.info("Weather fetch attempt %d for (%s, %s) -> %s", attempt + 1, latitude, longitude, OPENMETEO_WEATHER_URL)
+            response = session.get(OPENMETEO_WEATHER_URL, params=params, timeout=45)
+            logger.info("Weather response status: %d for (%s, %s)", response.status_code, latitude, longitude)
             response.raise_for_status()
-            return response.json()
+            data = response.json()
+            hourly = data.get("hourly", {})
+            logger.info("Weather hourly keys: %s for (%s, %s)", list(hourly.keys()), latitude, longitude)
+            return data
         except (requests.RequestException, ValueError) as exc:
             logger.warning("Open-Meteo weather request failed (attempt %d) for (%s, %s): %s", attempt + 1, latitude, longitude, exc)
             if attempt < 2:
