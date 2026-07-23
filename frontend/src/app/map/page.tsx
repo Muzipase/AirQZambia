@@ -3,7 +3,7 @@
 import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
-import { fetchCityAirQuality } from '@/lib/api';
+import { fetchCityAirQuality, fetchLiveWeather } from '@/lib/api';
 
 const MapView = dynamic(() => import('@/components/MapView'), { ssr: false });
 
@@ -56,6 +56,14 @@ export default function PollutionMapPage() {
               humidity: data.readings?.humidity ?? 0,
               wind_speed: data.readings?.wind_speed ?? 0,
             };
+            if (results[city.name].temperature === 0) {
+              const wx = await fetchLiveWeather(city.name);
+              if (wx) {
+                results[city.name].temperature = wx.temperature;
+                results[city.name].humidity = wx.humidity;
+                results[city.name].wind_speed = wx.wind_speed;
+              }
+            }
           }
         })
       );
