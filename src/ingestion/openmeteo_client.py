@@ -1,4 +1,5 @@
 import logging
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
@@ -55,13 +56,16 @@ def _fetch_aq_hourly(
         "timezone": "Africa/Lusaka",
         "forecast_days": forecast_days,
     }
-    try:
-        response = requests.get(OPENMETEO_AQ_URL, params=params, timeout=15)
-        response.raise_for_status()
-        return response.json()
-    except (requests.RequestException, ValueError) as exc:
-        logger.warning("Open-Meteo AQ request failed for (%s, %s): %s", latitude, longitude, exc)
-        return None
+    for attempt in range(3):
+        try:
+            response = requests.get(OPENMETEO_AQ_URL, params=params, timeout=30)
+            response.raise_for_status()
+            return response.json()
+        except (requests.RequestException, ValueError) as exc:
+            logger.warning("Open-Meteo AQ request failed (attempt %d) for (%s, %s): %s", attempt + 1, latitude, longitude, exc)
+            if attempt < 2:
+                time.sleep(2 ** attempt)
+    return None
 
 
 def _fetch_aq_historical(
@@ -121,13 +125,16 @@ def _fetch_weather_hourly(
         "timezone": "Africa/Lusaka",
         "forecast_days": forecast_days,
     }
-    try:
-        response = requests.get(OPENMETEO_WEATHER_URL, params=params, timeout=15)
-        response.raise_for_status()
-        return response.json()
-    except (requests.RequestException, ValueError) as exc:
-        logger.warning("Open-Meteo weather request failed for (%s, %s): %s", latitude, longitude, exc)
-        return None
+    for attempt in range(3):
+        try:
+            response = requests.get(OPENMETEO_WEATHER_URL, params=params, timeout=30)
+            response.raise_for_status()
+            return response.json()
+        except (requests.RequestException, ValueError) as exc:
+            logger.warning("Open-Meteo weather request failed (attempt %d) for (%s, %s): %s", attempt + 1, latitude, longitude, exc)
+            if attempt < 2:
+                time.sleep(2 ** attempt)
+    return None
 
 
 def _build_city_dataframe(
