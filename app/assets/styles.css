@@ -1,0 +1,134 @@
+.stApp {
+    background: #eef6fb !important;
+    color: #102a43 !important;
+    font-family: 'Segoe UI', 'Inter', sans-serif !important;
+}
+
+.block-card,
+.metric-card,
+.top-card,
+.shap-card,
+.input-card,
+.button-card {
+    background: white;
+    border-radius: 24px;
+    border: 1px solid rgba(15, 23, 42, 0.08);
+    box-shadow: 0 16px 35px rgba(15, 23, 42, 0.08);
+    padding: 24px;
+    margin-bottom: 16px;
+}
+
+.big-aqi {
+    background: linear-gradient(135deg, #0f766e, #22d3ee);
+    color: white;
+    padding: 24px;
+    border-radius: 26px;
+    box-shadow: 0 16px 35px rgba(15, 23, 42, 0.12);
+    text-align: center;
+}
+
+.aqi-value {
+    font-size: 72px;
+    font-weight: 800;
+    line-height: 1;
+}
+
+.aqi-label {
+    font-size: 24px;
+    font-weight: 700;
+}
+
+.section-title {
+    color: #0f172a;
+    font-size: 18px;
+    font-weight: 700;
+    margin-bottom: 14px;
+}
+
+.small-text {
+    font-size: 13px;
+    color: #475569;
+    line-height: 1.6;
+}
+
+.metric-card {
+    padding: 20px 18px;
+}
+
+.metric-label {
+    color: #475569;
+    font-size: 14px;
+    margin-bottom: 8px;
+}
+
+.metric-value {
+    font-size: 32px;
+    font-weight: 700;
+    color: #0f172a;
+}
+
+.pollutant {
+    text-align: center;
+    padding: 20px;
+    border-radius: 20px;
+    background: linear-gradient(180deg, #f8fafc 0%, #ffffff 100%);
+    border: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.pollutant-name {
+    font-size: 16px;
+    font-weight: 700;
+    margin-bottom: 8px;
+    color: #0f172a;
+}
+
+.pollutant-value {
+    font-size: 30px;
+    font-weight: 700;
+    margin-bottom: 8px;
+}
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.badge.good { background: #d1fae5; color: #065f46; }
+.badge.moderate { background: #fef9c3; color: #92400e; }
+.badge.unhealthy { background: #fee2e2; color: #991b1b; }
+.badge.very-unhealthy { background: #fed7aa; color: #9a3412; }
+.badge.hazardous { background: #fbcfe8; color: #7e22ce; }
+
+.action-card {
+    background: linear-gradient(135deg, #0f766e, #38bdf8);
+    color: white;
+    border-radius: 24px;
+    padding: 24px;
+    text-align: center;
+    min-height: 180px;
+}
+
+.action-card h3 {
+    margin-top: 12px;
+    font-size: 18px;
+}
+
+.stButton>button {
+    background: linear-gradient(135deg, #0891b2, #0f766e) !important;
+    color: white !important;
+    border: none !important;
+    box-shadow: 0 10px 30px rgba(2, 132, 199, 0.24);
+}
+
+.stButton>button:hover {
+    opacity: 0.95 !important;
+}
+
+input, textarea, select {
+    border-radius: 14px !important;
+}

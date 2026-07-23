@@ -1,0 +1,15 @@
+fastapi
+uvicorn
+numpy
+pandas
+scikit-learn
+imbalanced-learn
+shap
+optuna
+matplotlib
+plotly
+seaborn
+joblib
+requests
+pyyaml
+psutil
