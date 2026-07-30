@@ -1,14 +1,11 @@
 const sharp = require('sharp');
-const fs = require('fs');
 const path = require('path');
 
 const sizes = [192, 512];
-const svgPath = path.join(__dirname, '..', 'public', 'icons', 'icon.svg');
-const svg = fs.readFileSync(svgPath, 'utf-8');
 
 async function generate() {
   for (const size of sizes) {
-    await sharp(Buffer.from(svg))
+    await sharp(path.join(__dirname, '..', 'public', 'icons', 'icon.png'))
       .resize(size, size)
       .png()
       .toFile(path.join(__dirname, '..', 'public', 'icons', `icon-${size}.png`));
@@ -17,3 +14,7 @@ async function generate() {
 }
 
 generate().catch(console.error);
+
+
+
+
