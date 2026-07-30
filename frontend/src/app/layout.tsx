@@ -9,6 +9,15 @@ const inter = Inter({ subsets: ['latin'] });
 export const metadata = {
   title: 'AirQ Zambia - Air Quality Monitor',
   description: 'Real-time air quality monitoring for Lusaka, Ndola, and Kitwe',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'default',
+    title: 'AirQ Zambia',
+  },
+  other: {
+    'mobile-web-app-capable': 'yes',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

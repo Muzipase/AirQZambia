@@ -21,6 +21,7 @@ data/processed_data.csv
 # Build artifacts
 frontend/.next/
 frontend/node_modules/
+frontend/public/sw.js
 artifacts/metrics.json
 
 # OS
