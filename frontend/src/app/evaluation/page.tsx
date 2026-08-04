@@ -288,7 +288,7 @@ export default function EvaluationPage() {
   }));
 
   // Per-class recall: Baseline vs Optimized
-  const recallClasses = useMemo(() => {
+  const recallClasses = (() => {
     const baselinePer = baseline?.per_class_metrics ?? {};
     const optimizedPer = optimized?.per_class_metrics ?? {};
     const labels = Array.from(new Set([...Object.keys(baselinePer), ...Object.keys(optimizedPer)]));
@@ -299,7 +299,7 @@ export default function EvaluationPage() {
         optimizedRecall: optimizedPer[label]?.recall ?? 0,
       }))
       .sort((a, b) => b.optimizedRecall - a.optimizedRecall);
-  }, [baseline, optimized]);
+  })();
 
   const recallCompareGroups: BarGroup[] = recallClasses.map((c) => ({
     label: c.label,
