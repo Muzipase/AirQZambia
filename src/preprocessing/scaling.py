@@ -1,22 +1,22 @@
 import pandas as pd
 import joblib
 from pathlib import Path
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import MinMaxScaler
 from typing import Optional, Tuple
 
 
-def fit_scaler(df: pd.DataFrame) -> Tuple[pd.DataFrame, StandardScaler]:
+def fit_scaler(df: pd.DataFrame) -> Tuple[pd.DataFrame, MinMaxScaler]:
     """Fit a scaler on numeric columns and return scaled data with the trained scaler."""
     if df is None or df.empty:
-        return df, StandardScaler()
+        return df, MinMaxScaler()
 
     numeric_df = df.select_dtypes(include=["number"]).copy()
-    scaler = StandardScaler()
+    scaler = MinMaxScaler()
     scaled_values = scaler.fit_transform(numeric_df)
     return pd.DataFrame(scaled_values, columns=numeric_df.columns, index=numeric_df.index), scaler
 
 
-def apply_scaler_to_dataframe(df: pd.DataFrame, scaler: StandardScaler, feature_columns: Optional[list] = None) -> pd.DataFrame:
+def apply_scaler_to_dataframe(df: pd.DataFrame, scaler: MinMaxScaler, feature_columns: Optional[list] = None) -> pd.DataFrame:
     """Apply a fitted scaler to numeric feature columns without breaking non-numeric columns."""
     if df is None or df.empty or scaler is None:
         return df
@@ -45,7 +45,7 @@ def apply_scaler_to_dataframe(df: pd.DataFrame, scaler: StandardScaler, feature_
     return result
 
 
-def transform_with_scaler(df: pd.DataFrame, scaler: StandardScaler) -> pd.DataFrame:
+def transform_with_scaler(df: pd.DataFrame, scaler: MinMaxScaler) -> pd.DataFrame:
     if df is None or df.empty:
         return df
 
@@ -54,12 +54,12 @@ def transform_with_scaler(df: pd.DataFrame, scaler: StandardScaler) -> pd.DataFr
     return pd.DataFrame(scaled_values, columns=numeric_df.columns, index=numeric_df.index)
 
 
-def save_scaler(scaler: StandardScaler, path: Path):
+def save_scaler(scaler: MinMaxScaler, path: Path):
     path.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(scaler, path)
 
 
-def load_scaler(path: Path) -> Optional[StandardScaler]:
+def load_scaler(path: Path) -> Optional[MinMaxScaler]:
     if not path.exists():
         return None
     return joblib.load(path)

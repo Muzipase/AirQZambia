@@ -1,0 +1,84 @@
+{
+  "labels": [
+    "Good",
+    "Moderate",
+    "Unhealthy",
+    "Very Unhealthy"
+  ],
+  "baseline": {
+    "labels": [
+      "Good",
+      "Moderate",
+      "Unhealthy",
+      "Very Unhealthy"
+    ],
+    "matrix": [
+      [
+        10351,
+        89,
+        0,
+        0
+      ],
+      [
+        219,
+        6764,
+        9,
+        0
+      ],
+      [
+        0,
+        56,
+        377,
+        5
+      ],
+      [
+        0,
+        0,
+        22,
+        50
+      ]
+    ],
+    "shape": [
+      4,
+      4
+    ]
+  },
+  "optimized": {
+    "labels": [
+      "Good",
+      "Moderate",
+      "Unhealthy",
+      "Very Unhealthy"
+    ],
+    "matrix": [
+      [
+        10288,
+        152,
+        0,
+        0
+      ],
+      [
+        50,
+        6880,
+        62,
+        0
+      ],
+      [
+        0,
+        2,
+        431,
+        5
+      ],
+      [
+        0,
+        0,
+        2,
+        70
+      ]
+    ],
+    "shape": [
+      4,
+      4
+    ]
+  }
+}

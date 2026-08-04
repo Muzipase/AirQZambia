@@ -83,9 +83,18 @@ export interface ModelComparison {
   precision_difference: number;
   recall_difference: number;
   f1_score_difference: number;
+  per_class_recall_difference?: Record<string, number>;
   baseline_metrics: ModelMetrics;
   optimized_metrics: ModelMetrics;
   [key: string]: any;
+}
+
+export interface ConfusionMatrixData {
+  status?: string;
+  labels: string[];
+  baseline: { matrix: number[][]; labels?: string[] };
+  optimized: { matrix: number[][]; labels?: string[] };
+  timestamp?: string;
 }
 
 export interface ShapData {

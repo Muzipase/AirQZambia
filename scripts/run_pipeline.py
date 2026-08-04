@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from config.paths import (
     RAW_DATA_PATH, PROCESSED_DATA_PATH,
     BASELINE_MODEL_PATH, OPTIMIZED_MODEL_PATH,
-    METRICS_PATH, SCALER_PATH, SHAP_PLOTS_DIR, COMPARISON_PATH, ensure_dirs,
+    METRICS_PATH, SCALER_PATH, SHAP_PLOTS_DIR, COMPARISON_PATH, CONFUSION_MATRIX_PATH, ensure_dirs,
 )
 from src.ingestion.fetch_data import fetch_data
 from src.preprocessing.clean_data import clean_data
@@ -26,6 +26,7 @@ from src.models.baseline_svm import train_baseline_svm
 from src.models.optimized_svm import train_optimized_svm
 from src.evaluation.metrics import compute_metrics
 from src.evaluation.comparison import compare_models
+from src.evaluation.confusion_matrix import generate_confusion_matrix
 
 import joblib
 import pandas as pd
@@ -84,18 +85,28 @@ def run_pipeline(source: str = "auto", city: str = None, historical: bool = Fals
     X_train_bal, y_train_bal = apply_smote_tomek(X_train, y_train)
     logger.info("After SMOTE-Tomek: %d records (was %d)", len(X_train_bal), len(X_train))
 
-    # Subsample if balanced set is too large for SVM training speed
+    # Baseline trains on ORIGINAL imbalanced training data (no SMOTE),
+    # per proposal §7.5. Optimized trains on the balanced set.
+    X_train_base, y_train_base = X_train, y_train
+
+    # Subsample if training sets are too large for SVM training speed
     MAX_TRAIN = 30000
+    if len(X_train_base) > MAX_TRAIN:
+        from sklearn.utils import resample
+        X_train_base, y_train_base = resample(
+            X_train_base, y_train_base, n_samples=MAX_TRAIN, random_state=42, stratify=y_train_base
+        )
+        logger.info("Baseline subsampled to %d records (imbalanced) for training speed", MAX_TRAIN)
     if len(X_train_bal) > MAX_TRAIN:
         from sklearn.utils import resample
         X_train_bal, y_train_bal = resample(
             X_train_bal, y_train_bal, n_samples=MAX_TRAIN, random_state=42, stratify=y_train_bal
         )
-        logger.info("Subsampled to %d records for training speed", MAX_TRAIN)
+        logger.info("Optimized subsampled to %d records for training speed", MAX_TRAIN)
 
-    # 5. Train baseline
-    logger.info("Training baseline SVM...")
-    baseline_model = train_baseline_svm(X_train_bal, y_train_bal)
+    # 5. Train baseline (imbalanced data)
+    logger.info("Training baseline SVM on imbalanced data...")
+    baseline_model = train_baseline_svm(X_train_base, y_train_base)
     joblib.dump(baseline_model, BASELINE_MODEL_PATH)
     logger.info("Baseline model saved to %s", BASELINE_MODEL_PATH)
 
@@ -125,6 +136,15 @@ def run_pipeline(source: str = "auto", city: str = None, historical: bool = Fals
     with open(COMPARISON_PATH, "w", encoding="utf-8") as f:
         json.dump(comparison, f, indent=2)
     logger.info("Comparison saved to %s (accuracy delta: %+.4f)", COMPARISON_PATH, comparison["accuracy_difference"])
+
+    # 7c. Confusion matrices for both models
+    labels = sorted(set(y_test.tolist()))
+    baseline_cm = generate_confusion_matrix(y_test, baseline_model.predict(X_test), labels=labels)
+    optimized_cm = generate_confusion_matrix(y_test, optimized_model.predict(X_test), labels=labels)
+    CONFUSION_MATRIX_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(CONFUSION_MATRIX_PATH, "w", encoding="utf-8") as f:
+        json.dump({"labels": labels, "baseline": baseline_cm, "optimized": optimized_cm}, f, indent=2)
+    logger.info("Confusion matrices saved to %s", CONFUSION_MATRIX_PATH)
 
     # 8. Save SHAP beeswarm plot
     try:

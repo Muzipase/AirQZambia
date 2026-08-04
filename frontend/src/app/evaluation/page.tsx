@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import MetricCard from '@/components/MetricCard';
-import { fetchEvaluationMetrics, fetchModelComparison } from '@/lib/api';
-import { EvaluationMetrics, ModelComparison, ModelMetrics } from '@/types';
+import { fetchEvaluationMetrics, fetchModelComparison, fetchConfusionMatrix } from '@/lib/api';
+import { EvaluationMetrics, ModelComparison, ModelMetrics, ConfusionMatrixData } from '@/types';
 
 function ProgressCircle({ value, label, color }: { value: number; label: string; color: string }) {
   const radius = 38;
@@ -121,21 +121,110 @@ function ChartLegend({ items }: { items: { name: string; color: string }[] }) {
   );
 }
 
+// ==================== Confusion Matrix Heatmap ====================
+
+function ConfusionMatrixHeatmap({ labels, matrix, title, subtitle }: { labels: string[]; matrix: number[][]; title: string; subtitle?: string }) {
+  const cell = 46;
+  const W = labels.length * cell + 190;
+  const H = labels.length * cell + 90;
+  const max = Math.max(1, ...matrix.flat().map(Number));
+  const fmt = (v: number) => (v >= 1000 ? (v / 1000).toFixed(1) + 'k' : String(v));
+
+  const cellColor = (v: number) => {
+    const ratio = v / max;
+    if (ratio === 0) return 'var(--border-subtle)';
+    const r = Math.round(20 + (6 - 20) * ratio);
+    const g = Math.round(106 + (177 - 106) * ratio);
+    const b = Math.round(61 + (61 - 61) * ratio);
+    return `rgba(${r}, ${g}, ${b}, ${0.12 + 0.88 * ratio})`;
+  };
+
+  return (
+    <div>
+      <p className="text-sm font-bold text-[var(--text-primary)] mb-0.5">{title}</p>
+      {subtitle && <p className="text-xs text-[var(--text-muted)] mb-3">{subtitle}</p>}
+      <div className="overflow-x-auto">
+        <svg viewBox={`0 0 ${W} ${H}`} className="min-w-[480px]">
+          {labels.map((l, i) => (
+            <g key={`row-${i}`}>
+              <text x={150} y={52 + i * cell + cell / 2} textAnchor="end" fontSize={11} fill="var(--text-muted)">
+                {l}
+              </text>
+              <text x={186 + labels.length * cell + 6} y={52 + i * cell + cell / 2} textAnchor="start" fontSize={11} fill="var(--text-muted)">
+                {l}
+              </text>
+            </g>
+          ))}
+          {labels.map((l, i) => (
+            <text key={`col-${i}`} x={190 + i * cell + cell / 2} y={30} textAnchor="middle" fontSize={11} fill="var(--text-muted)">
+              {l}
+            </text>
+          ))}
+          {matrix.map((row, r) =>
+            row.map((v, c) => (
+              <rect
+                key={`${r}-${c}`}
+                x={190 + c * cell}
+                y={38 + r * cell}
+                width={cell - 2}
+                height={cell - 2}
+                rx={3}
+                fill={cellColor(Number(v))}
+                stroke="var(--border-subtle)"
+                strokeWidth="0.5"
+              >
+                <title>{`True ${labels[r]}, Predicted ${labels[c]}: ${v}`}</title>
+              </rect>
+            ))
+          )}
+          {matrix.map((row, r) =>
+            row.map((v, c) => (
+              <text
+                key={`val-${r}-${c}`}
+                x={190 + c * cell + (cell - 2) / 2}
+                y={38 + r * cell + (cell - 2) / 2 + 4}
+                textAnchor="middle"
+                fontSize={11}
+                fontWeight={Number(v) > 0 ? 700 : 400}
+                fill={Number(v) > 0 && Number(v) / max > 0.45 ? '#ffffff' : 'var(--text-muted)'}
+              >
+                {fmt(Number(v))}
+              </text>
+            ))
+          )}
+          <text x={190 + (labels.length * cell) / 2} y={H - 16} textAnchor="middle" fontSize={11} fill="var(--text-muted)">
+            Predicted category
+          </text>
+          <text x={16} y={38 + (labels.length * cell) / 2} fontSize={11} fill="var(--text-muted)" transform={`rotate(-90 16 ${38 + (labels.length * cell) / 2})`} textAnchor="middle">
+            True category
+          </text>
+        </svg>
+      </div>
+    </div>
+  );
+}
+
 // ==================== Page ====================
 
 export default function EvaluationPage() {
   const [metrics, setMetrics] = useState<EvaluationMetrics | null>(null);
   const [comparison, setComparison] = useState<ModelComparison | null>(null);
+  const [confusion, setConfusion] = useState<ConfusionMatrixData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
     const load = async () => {
       try {
-        const [data, comp] = await Promise.all([fetchEvaluationMetrics(), fetchModelComparison()]);
+        const [data, comp, cm] = await Promise.all([
+          fetchEvaluationMetrics(),
+          fetchModelComparison(),
+          fetchConfusionMatrix(),
+        ]);
         if (!mounted) return;
         if (data && typeof data === 'object') setMetrics(data as EvaluationMetrics);
         setComparison(comp);
+        setConfusion(cm);
       } catch (error) {
         console.error('Error loading evaluation data:', error);
       } finally {
@@ -196,6 +285,35 @@ export default function EvaluationPage() {
       { name: 'Recall', value: values?.recall ?? 0, color: '#ff8c00' },
       { name: 'F1', value: values?.f1_score ?? 0, color: '#006a3d' },
     ],
+  }));
+
+  // Per-class recall: Baseline vs Optimized
+  const recallClasses = useMemo(() => {
+    const baselinePer = baseline?.per_class_metrics ?? {};
+    const optimizedPer = optimized?.per_class_metrics ?? {};
+    const labels = Array.from(new Set([...Object.keys(baselinePer), ...Object.keys(optimizedPer)]));
+    return labels
+      .map((label) => ({
+        label,
+        baselineRecall: baselinePer[label]?.recall ?? 0,
+        optimizedRecall: optimizedPer[label]?.recall ?? 0,
+      }))
+      .sort((a, b) => b.optimizedRecall - a.optimizedRecall);
+  }, [baseline, optimized]);
+
+  const recallCompareGroups: BarGroup[] = recallClasses.map((c) => ({
+    label: c.label,
+    bars: [
+      { name: 'Baseline', value: c.baselineRecall, color: '#94a3b8' },
+      { name: 'Optimized', value: c.optimizedRecall, color: '#10b981' },
+    ],
+  }));
+
+  const recallDeltaRows = recallClasses.map((c) => ({
+    label: c.label,
+    baseline: c.baselineRecall,
+    optimized: c.optimizedRecall,
+    delta: c.optimizedRecall - c.baselineRecall,
   }));
 
   const compareRows = baseline
@@ -304,6 +422,45 @@ export default function EvaluationPage() {
           </section>
         )}
 
+        {recallCompareGroups.length > 0 && (
+          <section className="card animate-fade-in-up delay-350">
+            <h3 className="text-sm font-bold text-[var(--text-primary)] mb-1">Minority-Class Recall: Baseline vs Optimized</h3>
+            <p className="text-xs text-[var(--text-muted)] mb-4">
+              Recall per air quality category. Higher recall on minority classes (Unhealthy, Very Unhealthy)
+              shows the hybrid SMOTE-Tomek framework&apos;s main contribution.
+            </p>
+            <GroupedBarChart groups={recallCompareGroups} />
+            <div className="mt-3">
+              <ChartLegend
+                items={[
+                  { name: 'Baseline SVM (imbalanced)', color: '#94a3b8' },
+                  { name: 'Optimized SVM (SMOTE-Tomek)', color: '#10b981' },
+                ]}
+              />
+            </div>
+
+            <div className="mt-5 overflow-x-auto rounded-xl border border-[var(--border-subtle)]">
+              <table className="data-table">
+                <thead>
+                  <tr><th>Category</th><th>Baseline Recall</th><th>Optimized Recall</th><th>Delta</th></tr>
+                </thead>
+                <tbody>
+                  {recallDeltaRows.map((row) => (
+                    <tr key={row.label}>
+                      <td className="capitalize font-semibold">{row.label}</td>
+                      <td className="font-bold">{(row.baseline * 100).toFixed(1)}%</td>
+                      <td className="font-bold">{(row.optimized * 100).toFixed(1)}%</td>
+                      <td className={`font-bold ${row.delta >= 0 ? 'text-[#006a3d]' : 'text-[#de3831]'}`}>
+                        {row.delta >= 0 ? '+' : ''}{(row.delta * 100).toFixed(1)}pp
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+
         {classGroups.length > 0 && (
           <section className="card animate-fade-in-up delay-400">
             <h3 className="text-sm font-bold text-[var(--text-primary)] mb-1">Per-Class Performance</h3>
@@ -318,6 +475,30 @@ export default function EvaluationPage() {
                   { name: 'Recall', color: '#ff8c00' },
                   { name: 'F1 Score', color: '#006a3d' },
                 ]}
+              />
+            </div>
+          </section>
+        )}
+
+        {confusion && confusion.labels && confusion.labels.length > 0 && (
+          <section className="card animate-fade-in-up delay-450">
+            <h3 className="text-sm font-bold text-[var(--text-primary)] mb-1">Confusion Matrices</h3>
+            <p className="text-xs text-[var(--text-muted)] mb-6">
+              Classification breakdown per category. Rows are true categories, columns are predicted categories;
+              the diagonal shows correct classifications.
+            </p>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+              <ConfusionMatrixHeatmap
+                labels={confusion.labels}
+                matrix={confusion.baseline?.matrix ?? []}
+                title="Baseline SVM"
+                subtitle="Trained on imbalanced data without SMOTE-Tomek"
+              />
+              <ConfusionMatrixHeatmap
+                labels={confusion.labels}
+                matrix={confusion.optimized?.matrix ?? []}
+                title="Optimized SVM"
+                subtitle="Hybrid framework with SMOTE-Tomek balancing"
               />
             </div>
           </section>

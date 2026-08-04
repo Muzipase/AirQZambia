@@ -34,6 +34,7 @@ from src.preprocessing.split_dataset import split_data
 from src.models.baseline_svm import train_baseline_svm
 from src.models.optimized_svm import train_optimized_svm
 from src.evaluation.metrics import compute_metrics
+from src.evaluation.comparison import compare_models
 from src.evaluation.confusion_matrix import generate_confusion_matrix
 from src.evaluation.cross_validation import cross_validate_model
 from src.explainability.shap_explainer import ShapExplainer
@@ -42,7 +43,7 @@ from src.balancing.smote_tomek import apply_smote_tomek
 from config.paths import (
     RAW_DATA_PATH, PROCESSED_DATA_PATH,
     BASELINE_MODEL_PATH, OPTIMIZED_MODEL_PATH,
-    SCALER_PATH, SHAP_VALUES_PATH, METRICS_PATH, COMPARISON_PATH, ARTIFACTS_DIR, ensure_dirs
+    SCALER_PATH, SHAP_VALUES_PATH, METRICS_PATH, COMPARISON_PATH, CONFUSION_MATRIX_PATH, ARTIFACTS_DIR, ensure_dirs
 )
 
 # Ensure artifact directories exist before saving files
@@ -1088,11 +1089,8 @@ async def train_baseline(background_tasks: BackgroundTasks, authorized: bool = D
         
         X_train, X_test, y_train, y_test = split_data(X, y)
         
-        # Apply SMOTE-Tomek to training data
-        X_train_bal, y_train_bal = apply_smote_tomek(X_train, y_train)
-        
-        # Train baseline model on balanced data
-        model = await asyncio.to_thread(train_baseline_svm, X_train_bal, y_train_bal)
+        # Train baseline model on imbalanced data (proposal §7.5)
+        model = await asyncio.to_thread(train_baseline_svm, X_train, y_train)
         
         # Save model
         await asyncio.to_thread(joblib.dump, model, BASELINE_MODEL_PATH)
@@ -1108,7 +1106,7 @@ async def train_baseline(background_tasks: BackgroundTasks, authorized: bool = D
             "status": "success",
             "message": "Baseline SVM model trained successfully",
             "model_path": str(BASELINE_MODEL_PATH),
-            "train_size": len(X_train_bal),
+            "train_size": len(X_train),
             "test_size": len(X_test),
             "metrics": metrics,
             "metrics_path": str(METRICS_PATH),
@@ -1495,6 +1493,29 @@ async def get_model_comparison():
         logger.error(f"Comparison retrieval failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/evaluation/confusion-matrix")
+async def get_confusion_matrix():
+    """Get confusion matrices for baseline and optimized models from the last pipeline run."""
+    try:
+        if not CONFUSION_MATRIX_PATH.exists():
+            raise HTTPException(status_code=404, detail="Confusion matrices not available. Run the pipeline to generate them")
+
+        with open(CONFUSION_MATRIX_PATH, "r", encoding="utf-8") as f:
+            matrices = json.load(f)
+
+        return {
+            "status": "success",
+            "labels": matrices.get("labels", []),
+            "baseline": matrices.get("baseline", {}),
+            "optimized": matrices.get("optimized", {}),
+            "timestamp": datetime.now().isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Confusion matrix retrieval failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # ==================== Explainability Endpoints ====================
 
 @app.get("/api/explainability/shap-summary")
@@ -1623,10 +1644,11 @@ async def execute_full_pipeline(
         y = data['aqi_category']
         X_train, X_test, y_train, y_test = split_data(X, y)
         
-        # Apply SMOTE-Tomek to training data before fitting models
+        # Apply SMOTE-Tomek to training data before fitting optimized model.
+        # Baseline trains on ORIGINAL imbalanced data (proposal §7.5).
         X_train_bal, y_train_bal = apply_smote_tomek(X_train, y_train)
         
-        baseline_model = await asyncio.to_thread(train_baseline_svm, X_train_bal, y_train_bal)
+        baseline_model = await asyncio.to_thread(train_baseline_svm, X_train, y_train)
         optimized_model, best_params, _ = await asyncio.to_thread(train_optimized_svm, X_train_bal, y_train_bal)
         
         await asyncio.to_thread(joblib.dump, baseline_model, BASELINE_MODEL_PATH)
@@ -1645,6 +1667,17 @@ async def execute_full_pipeline(
         logger.info("Step 5: Evaluating models...")
         baseline_metrics = compute_metrics(y_test, baseline_model.predict(X_test))
         optimized_metrics = compute_metrics(y_test, optimized_model.predict(X_test))
+        
+        # Persist comparison + confusion matrices for the evaluation page
+        comparison = compare_models(baseline_metrics, optimized_metrics)
+        comparison["baseline_metrics"] = baseline_metrics
+        comparison["optimized_metrics"] = optimized_metrics
+        await asyncio.to_thread(lambda: open(COMPARISON_PATH, "w", encoding="utf-8").write(json.dumps(comparison, indent=2)))
+        
+        labels = sorted(set(y_test.tolist()))
+        baseline_cm = generate_confusion_matrix(y_test, baseline_model.predict(X_test), labels=labels)
+        optimized_cm = generate_confusion_matrix(y_test, optimized_model.predict(X_test), labels=labels)
+        await asyncio.to_thread(lambda: open(CONFUSION_MATRIX_PATH, "w", encoding="utf-8").write(json.dumps({"labels": labels, "baseline": baseline_cm, "optimized": optimized_cm}, indent=2)))
         
         logger.info("Pipeline execution completed successfully!")
         
@@ -1682,7 +1715,7 @@ async def root():
             "imbalance": ["/api/imbalance/analyze", "/api/imbalance/balance"],
             "models": ["/api/models/train/baseline", "/api/models/train/optimized"],
             "prediction": ["/api/predict", "/api/predict/batch"],
-            "evaluation": ["/api/evaluation/metrics", "/api/evaluation/cross-validate", "/api/evaluation/comparison"],
+            "evaluation": ["/api/evaluation/metrics", "/api/evaluation/cross-validate", "/api/evaluation/comparison", "/api/evaluation/confusion-matrix"],
             "explainability": ["/api/explainability/shap-summary", "/api/explainability/explain-prediction"],
             "system": ["/api/system/metrics"],
             "pipeline": ["/api/pipeline/execute"]

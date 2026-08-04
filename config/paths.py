@@ -17,6 +17,7 @@ SHAP_VALUES_PATH = ARTIFACTS_DIR / "shap_values.json"
 SHAP_PLOTS_DIR = ARTIFACTS_DIR / "shap_plots"
 METRICS_PATH = ARTIFACTS_DIR / "metrics.json"
 COMPARISON_PATH = ARTIFACTS_DIR / "comparison.json"
+CONFUSION_MATRIX_PATH = ARTIFACTS_DIR / "confusion_matrix.json"
 
 def ensure_dirs():
     for p in (DATA_DIR, MODELS_DIR, ARTIFACTS_DIR):
@@ -37,6 +38,7 @@ __all__ = [
     "SHAP_PLOTS_DIR",
     "METRICS_PATH",
     "COMPARISON_PATH",
+    "CONFUSION_MATRIX_PATH",
     "ensure_dirs",
 ]
 

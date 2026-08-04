@@ -1,5 +1,5 @@
 import useSWR from 'swr';
-import type { CityAirQuality, EvaluationMetrics, ForecastData, ModelComparison, PredictionInput, PredictionResult } from '@/types';
+import type { CityAirQuality, ConfusionMatrixData, EvaluationMetrics, ForecastData, ModelComparison, PredictionInput, PredictionResult } from '@/types';
 
 function getApiBaseUrl(): string {
   if (process.env.NEXT_PUBLIC_API_BASE_URL) {
@@ -157,6 +157,15 @@ export async function fetchModelComparison(): Promise<ModelComparison | null> {
     return data?.comparison ?? null;
   } catch (error) {
     console.error('Error fetching model comparison:', error);
+    return null;
+  }
+}
+
+export async function fetchConfusionMatrix(): Promise<ConfusionMatrixData | null> {
+  try {
+    return await request<ConfusionMatrixData>('/api/evaluation/confusion-matrix');
+  } catch (error) {
+    console.error('Error fetching confusion matrix:', error);
     return null;
   }
 }
