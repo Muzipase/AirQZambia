@@ -62,6 +62,32 @@ export interface EvaluationMetrics {
   [key: string]: any;
 }
 
+export interface PerClassMetric {
+  precision: number;
+  recall: number;
+  f1_score: number;
+  support?: number;
+}
+
+export interface ModelMetrics {
+  accuracy: number;
+  precision: number;
+  recall: number;
+  f1_score: number;
+  per_class_metrics?: Record<string, PerClassMetric>;
+  [key: string]: any;
+}
+
+export interface ModelComparison {
+  accuracy_difference: number;
+  precision_difference: number;
+  recall_difference: number;
+  f1_score_difference: number;
+  baseline_metrics: ModelMetrics;
+  optimized_metrics: ModelMetrics;
+  [key: string]: any;
+}
+
 export interface ShapData {
   summary: string;
   force_plot?: string;

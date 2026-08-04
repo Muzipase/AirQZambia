@@ -42,7 +42,7 @@ from src.balancing.smote_tomek import apply_smote_tomek
 from config.paths import (
     RAW_DATA_PATH, PROCESSED_DATA_PATH,
     BASELINE_MODEL_PATH, OPTIMIZED_MODEL_PATH,
-    SCALER_PATH, SHAP_VALUES_PATH, METRICS_PATH, ARTIFACTS_DIR, ensure_dirs
+    SCALER_PATH, SHAP_VALUES_PATH, METRICS_PATH, COMPARISON_PATH, ARTIFACTS_DIR, ensure_dirs
 )
 
 # Ensure artifact directories exist before saving files
@@ -1474,6 +1474,27 @@ async def cross_validate(folds: int = 5, model_type: str = "optimized"):
         logger.error(f"Cross-validation failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/evaluation/comparison")
+async def get_model_comparison():
+    """Get baseline-vs-optimized comparison metrics from the last pipeline run."""
+    try:
+        if not COMPARISON_PATH.exists():
+            raise HTTPException(status_code=404, detail="Comparison not available. Run the pipeline to generate baseline-vs-optimized comparison")
+
+        with open(COMPARISON_PATH, "r", encoding="utf-8") as f:
+            comparison = json.load(f)
+
+        return {
+            "status": "success",
+            "comparison": comparison,
+            "timestamp": datetime.now().isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Comparison retrieval failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
 # ==================== Explainability Endpoints ====================
 
 @app.get("/api/explainability/shap-summary")
@@ -1661,7 +1682,7 @@ async def root():
             "imbalance": ["/api/imbalance/analyze", "/api/imbalance/balance"],
             "models": ["/api/models/train/baseline", "/api/models/train/optimized"],
             "prediction": ["/api/predict", "/api/predict/batch"],
-            "evaluation": ["/api/evaluation/metrics", "/api/evaluation/cross-validate"],
+            "evaluation": ["/api/evaluation/metrics", "/api/evaluation/cross-validate", "/api/evaluation/comparison"],
             "explainability": ["/api/explainability/shap-summary", "/api/explainability/explain-prediction"],
             "system": ["/api/system/metrics"],
             "pipeline": ["/api/pipeline/execute"]

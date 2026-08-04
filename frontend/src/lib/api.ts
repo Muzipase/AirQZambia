@@ -1,5 +1,5 @@
 import useSWR from 'swr';
-import type { CityAirQuality, EvaluationMetrics, ForecastData, PredictionInput, PredictionResult } from '@/types';
+import type { CityAirQuality, EvaluationMetrics, ForecastData, ModelComparison, PredictionInput, PredictionResult } from '@/types';
 
 function getApiBaseUrl(): string {
   if (process.env.NEXT_PUBLIC_API_BASE_URL) {
@@ -149,6 +149,27 @@ export async function fetchEvaluationMetrics(): Promise<EvaluationMetrics> {
     console.error('Error fetching evaluation metrics:', error);
     return {};
   }
+}
+
+export async function fetchModelComparison(): Promise<ModelComparison | null> {
+  try {
+    const data = await request<{ status: string; comparison: ModelComparison }>('/api/evaluation/comparison');
+    return data?.comparison ?? null;
+  } catch (error) {
+    console.error('Error fetching model comparison:', error);
+    return null;
+  }
+}
+
+export function useModelComparison() {
+  return useSWR<ModelComparison | null>(
+    `${getApiBaseUrl()}/api/evaluation/comparison`,
+    (url: string) =>
+      fetch(url)
+        .then((r) => r.json())
+        .then((d) => d?.comparison ?? null),
+    { revalidateOnFocus: false }
+  );
 }
 
 // ==================== SHAP Explainability ====================

@@ -10,6 +10,7 @@ const navLinks = [
   { label: 'Air Quality', href: '/dashboard', icon: 'air' },
   { label: 'Pollution Map', href: '/map', icon: 'globe' },
   { label: 'Historical Trends', href: '/historical', icon: 'chart' },
+  { label: 'Model Evaluation', href: '/evaluation', icon: 'gauge' },
 ];
 
 const cities = [
@@ -35,6 +36,8 @@ function SidebarIcon({ icon }: { icon: string }) {
       return <svg {...p}><circle cx="12" cy="12" r="10" /><line x1="2" y1="12" x2="22" y2="12" /><path d="M12 2a15.3 15.3 0 014 10 15.3 15.3 0 01-4 10 15.3 15.3 0 01-4-10 15.3 15.3 0 014-10z" /></svg>;
     case 'chart':
       return <svg {...p}><path d="M3 3v18h18" /><path d="M7 16l4-5 4 3 5-7" /></svg>;
+    case 'gauge':
+      return <svg {...p}><path d="M12 15l3.5-3.5" /><path d="M20.3 18a10 10 0 10-16.6 0" /><circle cx="12" cy="15" r="1" /></svg>;
     default:
       return <svg {...p}><circle cx="12" cy="12" r="10" /></svg>;
   }

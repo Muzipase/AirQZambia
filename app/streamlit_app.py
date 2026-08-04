@@ -45,6 +45,16 @@ def fetch_evaluation_metrics():
     return {}
 
 @st.cache_data(ttl=120)
+def fetch_comparison_data():
+    try:
+        response = requests.get(f"{API_BASE_URL}/api/evaluation/comparison", timeout=4)
+        if response.ok:
+            return response.json()
+    except requests.RequestException:
+        pass
+    return {}
+
+@st.cache_data(ttl=120)
 def fetch_shap_summary():
     try:
         response = requests.get(f"{API_BASE_URL}/api/explainability/shap-summary", timeout=4)
@@ -455,6 +465,91 @@ def render_system_page(status: dict):
         st.error("Backend is unreachable. Confirm the API is running and try again.")
 
 
+def render_visual_evaluation():
+    """Sidebar-triggered visual model evaluation panel (non-destructive)."""
+    st.markdown("---")
+    st.subheader("Visual model evaluation")
+
+    metrics_resp = fetch_evaluation_metrics()
+    comparison_resp = fetch_comparison_data()
+
+    if not metrics_resp and not comparison_resp:
+        st.info("No evaluation data available. Run the pipeline / backend first.")
+        return
+
+    metrics = (metrics_resp or {}).get("metrics") or {}
+    comparison = (comparison_resp or {}).get("comparison") or {}
+
+    if metrics:
+        st.markdown("#### Optimized model summary")
+        cols = st.columns(4)
+        cols[0].metric("Accuracy", f"{metrics.get('accuracy', 0):.2%}")
+        cols[1].metric("Precision", f"{metrics.get('precision', 0):.2%}")
+        cols[2].metric("Recall", f"{metrics.get('recall', 0):.2%}")
+        cols[3].metric("F1 score", f"{metrics.get('f1_score', 0):.2%}")
+
+    # Baseline vs optimized comparison
+    baseline = comparison.get("baseline_metrics") or {}
+    optimized = comparison.get("optimized_metrics") or metrics
+    if baseline and optimized:
+        st.markdown("#### Baseline vs optimized SVM")
+        compare_df = pd.DataFrame(
+            {
+                "Metric": ["Accuracy", "Precision", "Recall", "F1"],
+                "Baseline SVM": [
+                    baseline.get("accuracy", 0), baseline.get("precision", 0),
+                    baseline.get("recall", 0), baseline.get("f1_score", 0),
+                ],
+                "Optimized SVM": [
+                    optimized.get("accuracy", 0), optimized.get("precision", 0),
+                    optimized.get("recall", 0), optimized.get("f1_score", 0),
+                ],
+            }
+        )
+        compare_long = compare_df.melt(
+            id_vars="Metric", var_name="Model", value_name="Score"
+        )
+        fig = px.bar(
+            compare_long,
+            x="Metric",
+            y="Score",
+            color="Model",
+            barmode="group",
+            title="Baseline vs optimized SVM",
+            color_discrete_map={"Baseline SVM": "#94a3b8", "Optimized SVM": "#10b981"},
+        )
+        fig.update_yaxes(tickformat=".0%")
+        st.plotly_chart(fig, use_container_width=True)
+
+    # Per-class metrics
+    per_class = optimized.get("per_class_metrics") or {}
+    if per_class:
+        st.markdown("#### Per-class performance")
+        class_rows = [
+            {
+                "Class": label,
+                "Precision": values.get("precision", 0),
+                "Recall": values.get("recall", 0),
+                "F1": values.get("f1_score", 0),
+            }
+            for label, values in per_class.items()
+        ]
+        class_df = pd.DataFrame(class_rows)
+        class_long = class_df.melt(id_vars="Class", var_name="Metric", value_name="Score")
+        fig2 = px.bar(
+            class_long,
+            x="Class",
+            y="Score",
+            color="Metric",
+            barmode="group",
+            title="Precision / recall / F1 by air quality class",
+        )
+        fig2.update_yaxes(tickformat=".0%")
+        st.plotly_chart(fig2, use_container_width=True)
+    else:
+        st.caption("Per-class metrics are not available in the evaluation data.")
+
+
 def main():
     selected_page = st.sidebar.radio("Navigate", NAV_ITEMS, index=0, key="nav_selection")
     st.sidebar.markdown("---")
@@ -498,6 +593,15 @@ def main():
     available_models = get_model_list(status)
     selected_model = st.sidebar.selectbox("Model", available_models or ["None"], index=0, key="selected_model")
 
+    st.sidebar.markdown("---")
+    st.sidebar.markdown("#### Visual model evaluation")
+    show_visual_eval = st.sidebar.checkbox(
+        "Show evaluation charts",
+        value=False,
+        key="visual_eval_toggle",
+        help="Render evaluation charts in the main panel without changing the current page.",
+    )
+
     if selected_page == "Overview":
         render_overview(status)
     elif selected_page == "Predictions":
@@ -508,6 +612,9 @@ def main():
         render_explainability(status)
     else:
         render_system_page(status)
+
+    if show_visual_eval:
+        render_visual_evaluation()
 
 
 if __name__ == "__main__":

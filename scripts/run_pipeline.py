@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from config.paths import (
     RAW_DATA_PATH, PROCESSED_DATA_PATH,
     BASELINE_MODEL_PATH, OPTIMIZED_MODEL_PATH,
-    METRICS_PATH, SCALER_PATH, SHAP_PLOTS_DIR, ensure_dirs,
+    METRICS_PATH, SCALER_PATH, SHAP_PLOTS_DIR, COMPARISON_PATH, ensure_dirs,
 )
 from src.ingestion.fetch_data import fetch_data
 from src.preprocessing.clean_data import clean_data
@@ -25,9 +25,11 @@ from src.balancing.smote_tomek import apply_smote_tomek
 from src.models.baseline_svm import train_baseline_svm
 from src.models.optimized_svm import train_optimized_svm
 from src.evaluation.metrics import compute_metrics
+from src.evaluation.comparison import compare_models
 
 import joblib
 import pandas as pd
+import json
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
 logger = logging.getLogger(__name__)
@@ -104,9 +106,25 @@ def run_pipeline(source: str = "auto", city: str = None, historical: bool = Fals
     logger.info("Optimized model saved to %s (best params: %s)", OPTIMIZED_MODEL_PATH, best_params)
 
     # 7. Evaluate
-    y_pred = optimized_model.predict(X_test)
-    metrics = compute_metrics(y_test, y_pred, save_path=METRICS_PATH)
-    logger.info("Evaluation — Accuracy: %.4f, F1: %.4f", metrics['accuracy'], metrics['f1_score'])
+    baseline_metrics = compute_metrics(y_test, baseline_model.predict(X_test))
+    optimized_metrics = compute_metrics(y_test, optimized_model.predict(X_test), save_path=METRICS_PATH)
+    logger.info(
+        "Baseline — Accuracy: %.4f, F1: %.4f",
+        baseline_metrics['accuracy'], baseline_metrics['f1_score'],
+    )
+    logger.info(
+        "Optimized — Accuracy: %.4f, F1: %.4f",
+        optimized_metrics['accuracy'], optimized_metrics['f1_score'],
+    )
+
+    # 7b. Baseline vs optimized comparison
+    comparison = compare_models(baseline_metrics, optimized_metrics)
+    comparison["baseline_metrics"] = baseline_metrics
+    comparison["optimized_metrics"] = optimized_metrics
+    COMPARISON_PATH.parent.mkdir(parents=True, exist_ok=True)
+    with open(COMPARISON_PATH, "w", encoding="utf-8") as f:
+        json.dump(comparison, f, indent=2)
+    logger.info("Comparison saved to %s (accuracy delta: %+.4f)", COMPARISON_PATH, comparison["accuracy_difference"])
 
     # 8. Save SHAP beeswarm plot
     try:
