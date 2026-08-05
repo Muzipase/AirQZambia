@@ -124,8 +124,8 @@ function ChartLegend({ items }: { items: { name: string; color: string }[] }) {
 // ==================== Confusion Matrix Heatmap ====================
 
 function ConfusionMatrixHeatmap({ labels, matrix, title, subtitle }: { labels: string[]; matrix: number[][]; title: string; subtitle?: string }) {
-  const cell = 68;
-  const gutter = 128;
+  const cell = 100;
+  const gutter = 132;
   const topPad = 40;
   const bottomPad = 44;
   const W = labels.length * cell + gutter;
