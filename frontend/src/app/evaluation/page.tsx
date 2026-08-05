@@ -124,9 +124,12 @@ function ChartLegend({ items }: { items: { name: string; color: string }[] }) {
 // ==================== Confusion Matrix Heatmap ====================
 
 function ConfusionMatrixHeatmap({ labels, matrix, title, subtitle }: { labels: string[]; matrix: number[][]; title: string; subtitle?: string }) {
-  const cell = 46;
-  const W = labels.length * cell + 190;
-  const H = labels.length * cell + 90;
+  const cell = 68;
+  const gutter = 128;
+  const topPad = 40;
+  const bottomPad = 44;
+  const W = labels.length * cell + gutter;
+  const H = labels.length * cell + topPad + bottomPad;
   const max = Math.max(1, ...matrix.flat().map(Number));
   const fmt = (v: number) => (v >= 1000 ? (v / 1000).toFixed(1) + 'k' : String(v));
 
@@ -142,60 +145,51 @@ function ConfusionMatrixHeatmap({ labels, matrix, title, subtitle }: { labels: s
   return (
     <div>
       <p className="text-sm font-bold text-[var(--text-primary)] mb-0.5">{title}</p>
-      {subtitle && <p className="text-xs text-[var(--text-muted)] mb-3">{subtitle}</p>}
-      <div className="overflow-x-auto">
-        <svg viewBox={`0 0 ${W} ${H}`} className="min-w-[480px]">
+      {subtitle && <p className="text-xs text-[var(--text-muted)] mb-4">{subtitle}</p>}
+      <div className="overflow-x-auto pb-1">
+        <svg viewBox={`0 0 ${W} ${H}`} className="mx-auto" style={{ maxWidth: W }}>
           {labels.map((l, i) => (
-            <g key={`row-${i}`}>
-              <text x={150} y={52 + i * cell + cell / 2} textAnchor="end" fontSize={11} fill="var(--text-muted)">
-                {l}
-              </text>
-              <text x={186 + labels.length * cell + 6} y={52 + i * cell + cell / 2} textAnchor="start" fontSize={11} fill="var(--text-muted)">
-                {l}
-              </text>
-            </g>
+            <text key={`row-${i}`} x={gutter - 12} y={topPad + i * cell + cell / 2} textAnchor="end" fontSize={13} fontWeight={600} fill="var(--text-primary)">
+              {l}
+            </text>
           ))}
           {labels.map((l, i) => (
-            <text key={`col-${i}`} x={190 + i * cell + cell / 2} y={30} textAnchor="middle" fontSize={11} fill="var(--text-muted)">
+            <text key={`col-${i}`} x={gutter + i * cell + cell / 2} y={topPad - 16} textAnchor="middle" fontSize={13} fontWeight={600} fill="var(--text-primary)">
               {l}
             </text>
           ))}
           {matrix.map((row, r) =>
             row.map((v, c) => (
-              <rect
-                key={`${r}-${c}`}
-                x={190 + c * cell}
-                y={38 + r * cell}
-                width={cell - 2}
-                height={cell - 2}
-                rx={3}
-                fill={cellColor(Number(v))}
-                stroke="var(--border-subtle)"
-                strokeWidth="0.5"
-              >
-                <title>{`True ${labels[r]}, Predicted ${labels[c]}: ${v}`}</title>
-              </rect>
+              <g key={`${r}-${c}`}>
+                <rect
+                  x={gutter + c * cell}
+                  y={topPad + r * cell}
+                  width={cell - 3}
+                  height={cell - 3}
+                  rx={4}
+                  fill={cellColor(Number(v))}
+                  stroke="var(--border-subtle)"
+                  strokeWidth="0.5"
+                >
+                  <title>{`True ${labels[r]}, Predicted ${labels[c]}: ${v}`}</title>
+                </rect>
+                <text
+                  x={gutter + c * cell + (cell - 3) / 2}
+                  y={topPad + r * cell + (cell - 3) / 2 + 5}
+                  textAnchor="middle"
+                  fontSize={15}
+                  fontWeight={700}
+                  fill={Number(v) > 0 && Number(v) / max > 0.45 ? '#ffffff' : 'var(--text-primary)'}
+                >
+                  {fmt(Number(v))}
+                </text>
+              </g>
             ))
           )}
-          {matrix.map((row, r) =>
-            row.map((v, c) => (
-              <text
-                key={`val-${r}-${c}`}
-                x={190 + c * cell + (cell - 2) / 2}
-                y={38 + r * cell + (cell - 2) / 2 + 4}
-                textAnchor="middle"
-                fontSize={11}
-                fontWeight={Number(v) > 0 ? 700 : 400}
-                fill={Number(v) > 0 && Number(v) / max > 0.45 ? '#ffffff' : 'var(--text-muted)'}
-              >
-                {fmt(Number(v))}
-              </text>
-            ))
-          )}
-          <text x={190 + (labels.length * cell) / 2} y={H - 16} textAnchor="middle" fontSize={11} fill="var(--text-muted)">
+          <text x={gutter + (labels.length * cell) / 2} y={H - 16} textAnchor="middle" fontSize={12} fill="var(--text-muted)">
             Predicted category
           </text>
-          <text x={16} y={38 + (labels.length * cell) / 2} fontSize={11} fill="var(--text-muted)" transform={`rotate(-90 16 ${38 + (labels.length * cell) / 2})`} textAnchor="middle">
+          <text x={16} y={topPad + (labels.length * cell) / 2} fontSize={12} fill="var(--text-muted)" textAnchor="middle" transform={`rotate(-90 16 ${topPad + (labels.length * cell) / 2})`}>
             True category
           </text>
         </svg>
@@ -487,7 +481,7 @@ export default function EvaluationPage() {
               Classification breakdown per category. Rows are true categories, columns are predicted categories;
               the diagonal shows correct classifications.
             </p>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 gap-10">
               <ConfusionMatrixHeatmap
                 labels={confusion.labels}
                 matrix={confusion.baseline?.matrix ?? []}
