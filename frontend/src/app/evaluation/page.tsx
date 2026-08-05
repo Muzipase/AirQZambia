@@ -126,7 +126,7 @@ function ChartLegend({ items }: { items: { name: string; color: string }[] }) {
 function ConfusionMatrixHeatmap({ labels, matrix, title, subtitle }: { labels: string[]; matrix: number[][]; title: string; subtitle?: string }) {
   const cell = 100;
   const gutter = 132;
-  const topPad = 40;
+  const topPad = 96;
   const bottomPad = 44;
   const W = labels.length * cell + gutter;
   const H = labels.length * cell + topPad + bottomPad;
@@ -153,11 +153,15 @@ function ConfusionMatrixHeatmap({ labels, matrix, title, subtitle }: { labels: s
               {l}
             </text>
           ))}
-          {labels.map((l, i) => (
-            <text key={`col-${i}`} x={gutter + i * cell + cell / 2} y={topPad - 16} textAnchor="middle" fontSize={13} fontWeight={600} fill="var(--text-primary)">
-              {l}
-            </text>
-          ))}
+          {labels.map((l, i) => {
+            const cx = gutter + i * cell + cell / 2;
+            const cy = topPad - 16;
+            return (
+              <text key={`col-${i}`} x={cx} y={cy} transform={`rotate(45 ${cx} ${cy})`} textAnchor="end" fontSize={13} fontWeight={600} fill="var(--text-primary)">
+                {l}
+              </text>
+            );
+          })}
           {matrix.map((row, r) =>
             row.map((v, c) => (
               <g key={`${r}-${c}`}>
