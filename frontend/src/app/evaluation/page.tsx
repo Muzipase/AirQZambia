@@ -530,7 +530,7 @@ export default function EvaluationPage() {
           </section>
         )}
 
-        {shapCategories.length > 0 && (
+        {/* {shapCategories.length > 0 && (
           <section className="card animate-fade-in-up delay-500">
             <h3 className="text-sm font-bold text-[var(--text-primary)] mb-1">Top Features per AQI Category</h3>
             <p className="text-xs text-[var(--text-muted)] mb-4">
@@ -565,7 +565,7 @@ export default function EvaluationPage() {
               </table>
             </div>
           </section>
-        )}
+        )} */}
 
         {detailRows.length > 0 && (
           <section className="card animate-fade-in-up delay-500">
