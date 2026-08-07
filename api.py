@@ -1542,6 +1542,37 @@ async def get_shap_summary():
         logger.error(f"SHAP summary failed: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
+@app.get("/api/explainability/shap-per-class")
+async def get_shap_per_class():
+    """Get top-3 SHAP features per AQI category for the optimized model."""
+    try:
+        if not OPTIMIZED_MODEL_PATH.exists():
+            raise HTTPException(status_code=404, detail="Optimized model not trained. Train model first")
+
+        explainer = await cache.get_shap_explainer()
+        if explainer is None:
+            raise HTTPException(status_code=404, detail="Could not build SHAP explainer. Run preprocessing first.")
+
+        data = await cache.get_processed_df()
+        if data is None:
+            raise HTTPException(status_code=404, detail="Processed data not found. Run preprocessing first")
+
+        X = _get_feature_matrix(data)
+        y = data["aqi_category"]
+        per_class = await asyncio.to_thread(explainer.get_per_class_importance, X, y)
+
+        return {
+            "status": "success",
+            "per_class_importance": per_class,
+            "timestamp": datetime.now().isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Per-class SHAP failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 @app.post("/api/explainability/explain-prediction")
 async def explain_prediction(input_data: PredictionInput):
     """Get SHAP explanation for a specific prediction"""

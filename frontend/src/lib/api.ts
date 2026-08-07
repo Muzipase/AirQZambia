@@ -191,6 +191,15 @@ export async function fetchShapSummary() {
   }
 }
 
+export async function fetchShapPerClass() {
+  try {
+    return await request('/api/explainability/shap-per-class');
+  } catch (error) {
+    console.error('Error fetching per-class SHAP importance:', error);
+    return null;
+  }
+}
+
 export async function fetchShapForce(instanceIndex: number) {
   try {
     return await request(`/api/explainability/force/${instanceIndex}`);

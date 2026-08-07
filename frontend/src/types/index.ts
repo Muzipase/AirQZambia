@@ -103,6 +103,17 @@ export interface ShapData {
   dependence?: Record<string, any>;
 }
 
+export interface ShapFeatureImportance {
+  feature: string;
+  importance: number;
+}
+
+export interface ShapPerClassData {
+  status?: string;
+  per_class_importance?: Record<string, ShapFeatureImportance[]>;
+  timestamp?: string;
+}
+
 export interface SystemMetrics {
   cpu_usage?: number;
   memory_usage?: number;

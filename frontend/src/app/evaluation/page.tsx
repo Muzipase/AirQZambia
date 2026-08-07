@@ -2,8 +2,8 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import MetricCard from '@/components/MetricCard';
-import { fetchEvaluationMetrics, fetchModelComparison, fetchConfusionMatrix } from '@/lib/api';
-import { EvaluationMetrics, ModelComparison, ModelMetrics, ConfusionMatrixData } from '@/types';
+import { fetchEvaluationMetrics, fetchModelComparison, fetchConfusionMatrix, fetchShapPerClass } from '@/lib/api';
+import { EvaluationMetrics, ModelComparison, ModelMetrics, ConfusionMatrixData, ShapPerClassData } from '@/types';
 
 function ProgressCircle({ value, label, color }: { value: number; label: string; color: string }) {
   const radius = 38;
@@ -208,21 +208,24 @@ export default function EvaluationPage() {
   const [metrics, setMetrics] = useState<EvaluationMetrics | null>(null);
   const [comparison, setComparison] = useState<ModelComparison | null>(null);
   const [confusion, setConfusion] = useState<ConfusionMatrixData | null>(null);
+  const [shapPerClass, setShapPerClass] = useState<ShapPerClassData | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let mounted = true;
     const load = async () => {
       try {
-        const [data, comp, cm] = await Promise.all([
+        const [data, comp, cm, shap] = await Promise.all([
           fetchEvaluationMetrics(),
           fetchModelComparison(),
           fetchConfusionMatrix(),
+          fetchShapPerClass(),
         ]);
         if (!mounted) return;
         if (data && typeof data === 'object') setMetrics(data as EvaluationMetrics);
         setComparison(comp);
         setConfusion(cm);
+        if (shap && typeof shap === 'object') setShapPerClass(shap as ShapPerClassData);
       } catch (error) {
         console.error('Error loading evaluation data:', error);
       } finally {
@@ -324,6 +327,9 @@ export default function EvaluationPage() {
     : [];
 
   const detailRows = Object.entries(m).filter(([key]) => key !== 'per_class_metrics');
+
+  const perClassImportance = shapPerClass?.per_class_importance ?? {};
+  const shapCategories = Object.keys(perClassImportance);
 
   return (
     <div className="page-container">
@@ -520,6 +526,43 @@ export default function EvaluationPage() {
                 title="Optimized SVM"
                 subtitle="Hybrid framework with SMOTE-Tomek balancing"
               />
+            </div>
+          </section>
+        )}
+
+        {shapCategories.length > 0 && (
+          <section className="card animate-fade-in-up delay-500">
+            <h3 className="text-sm font-bold text-[var(--text-primary)] mb-1">Top Features per AQI Category</h3>
+            <p className="text-xs text-[var(--text-muted)] mb-4">
+              Most influential features for each category (mean |SHAP| of the predicted class).
+            </p>
+            <div className="overflow-x-auto rounded-xl border border-[var(--border-subtle)]">
+              <table className="data-table">
+                <thead>
+                  <tr><th>Category</th><th>Top 3 Driving Features</th></tr>
+                </thead>
+                <tbody>
+                  {shapCategories.map((label) => (
+                    <tr key={label}>
+                      <td className="capitalize font-semibold whitespace-nowrap">{label}</td>
+                      <td>
+                        <div className="flex flex-wrap gap-2">
+                          {perClassImportance[label].map((f, i) => (
+                            <span
+                              key={f.feature}
+                              className="inline-flex items-center gap-1.5 rounded-full border border-[var(--border-subtle)] bg-[var(--bg-secondary)] px-2.5 py-1 text-xs"
+                            >
+                              <span className="text-[var(--text-muted)]">{i + 1}.</span>
+                              <span className="font-semibold text-[var(--text-primary)]">{f.feature}</span>
+                              <span className="text-[var(--text-muted)]">{f.importance.toFixed(3)}</span>
+                            </span>
+                          ))}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
             </div>
           </section>
         )}

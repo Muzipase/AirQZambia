@@ -47,6 +47,54 @@ class ShapExplainer:
             for idx, feature in enumerate(self.feature_names)
         }
 
+    def get_per_class_importance(
+        self,
+        X: pd.DataFrame,
+        y: pd.Series,
+        top_k: int = 3,
+        max_per_class: int = 100,
+    ) -> dict:
+        """Return the top-k most influential features per AQI category.
+
+        Uses the mean absolute SHAP value of the predicted class for each
+        sample, grouped by the true category. Subsamples up to ``max_per_class``
+        rows per category to keep KernelExplainer computation tractable.
+        """
+        X = X.reset_index(drop=True)
+        y = pd.Series(list(y)).reset_index(drop=True)
+
+        sampled_idx = []
+        for label in y.unique():
+            sampled_idx.extend(np.where(y.values == label)[0][:max_per_class].tolist())
+        X = X.iloc[sampled_idx]
+        y = y.iloc[sampled_idx]
+        predictions = self.model.predict(X)
+
+        raw = self.explainer.shap_values(X)
+        if isinstance(raw, list):
+            shap_by_class = {str(cls): np.asarray(v) for cls, v in zip(self.model.classes_, raw)}
+            class_key = lambda p: str(p)
+        elif isinstance(raw, np.ndarray) and raw.ndim == 3:
+            shap_by_class = {str(cls): raw[i] for i, cls in enumerate(self.model.classes_)}
+            class_key = lambda p: str(p)
+        else:
+            shap_by_class = {None: np.asarray(raw)}
+            class_key = lambda p: None
+
+        result = {}
+        for label in y.unique():
+            mask = (y.values == label)
+            rows = [shap_by_class[class_key(predictions[i])][i] for i in range(len(X)) if mask[i]]
+            if not rows:
+                continue
+            mean_abs = np.mean(np.abs(np.array(rows)), axis=0)
+            order = np.argsort(mean_abs)[::-1][:top_k]
+            result[str(label)] = [
+                {"feature": self.feature_names[idx], "importance": float(mean_abs[idx])}
+                for idx in order
+            ]
+        return result
+
     def explain_instance(self, input_df: pd.DataFrame):
         shap_values = self.explainer.shap_values(input_df)
         if isinstance(shap_values, list):
