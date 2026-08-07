@@ -19,6 +19,7 @@ class ShapExplainer:
         n_clusters = min(N_KMEANS_BACKGROUND, len(self.background_data))
         kmeans_obj = shap.kmeans(self.background_data, n_clusters)
         background_kmeans = pd.DataFrame(kmeans_obj.data, columns=self.feature_names)
+        self.background_kmeans = background_kmeans
         logger.info("SHAP background: %d kmeans clusters from %d samples", n_clusters, len(self.background_data))
 
         self.explainer = shap.KernelExplainer(
@@ -52,13 +53,16 @@ class ShapExplainer:
         X: pd.DataFrame,
         y: pd.Series,
         top_k: int = 3,
-        max_per_class: int = 100,
+        max_per_class: int = 200,
+        representatives_per_class: int = 8,
+        background_size: int = 15,
     ) -> dict:
         """Return the top-k most influential features per AQI category.
 
         Uses the mean absolute SHAP value of the predicted class for each
-        sample, grouped by the true category. Subsamples up to ``max_per_class``
-        rows per category to keep KernelExplainer computation tractable.
+        sample, grouped by the true category. To keep KernelExplainer
+        tractable, rows are subsampled per class and then kmeans-reduced to a
+        few representative rows before computing SHAP values.
         """
         X = X.reset_index(drop=True)
         y = pd.Series(list(y)).reset_index(drop=True)
@@ -66,25 +70,45 @@ class ShapExplainer:
         sampled_idx = []
         for label in y.unique():
             sampled_idx.extend(np.where(y.values == label)[0][:max_per_class].tolist())
-        X = X.iloc[sampled_idx]
-        y = y.iloc[sampled_idx]
-        predictions = self.model.predict(X)
+        sample_df = X.iloc[sampled_idx]
+        sample_y = y.iloc[sampled_idx]
 
-        raw = self.explainer.shap_values(X)
-        if isinstance(raw, list):
-            shap_by_class = {str(cls): np.asarray(v) for cls, v in zip(self.model.classes_, raw)}
-            class_key = lambda p: str(p)
-        elif isinstance(raw, np.ndarray) and raw.ndim == 3:
-            shap_by_class = {str(cls): raw[i] for i, cls in enumerate(self.model.classes_)}
-            class_key = lambda p: str(p)
-        else:
-            shap_by_class = {None: np.asarray(raw)}
-            class_key = lambda p: None
+        reps, labels = [], []
+        for label in sample_y.unique():
+            rows = sample_df[sample_y.values == label]
+            n_clusters = min(representatives_per_class, len(rows))
+            kmeans_obj = shap.kmeans(rows, n_clusters)
+            reps.append(kmeans_obj.data)
+            labels.append(label)
+        X = pd.DataFrame(np.vstack(reps), columns=self.feature_names)
+        y = pd.Series([label for label, count in zip(labels, [len(r) for r in reps]) for _ in range(count)])
+
+        background = self.background_kmeans
+        if len(background) > background_size:
+            background = pd.DataFrame(
+                shap.kmeans(background, background_size).data, columns=self.feature_names
+            )
+        explainer = shap.KernelExplainer(self._model_predict, background, link="identity")
+
+        predictions = self.model.predict(X)
+        raw = explainer.shap_values(X)
+
+        class_to_index = {str(cls): i for i, cls in enumerate(self.model.classes_)}
+
+        def per_row(i):
+            if isinstance(raw, list):
+                return raw[class_to_index[str(predictions[i])]][i]
+            if isinstance(raw, np.ndarray) and raw.ndim == 3:
+                if raw.shape[2] == len(self.model.classes_) and raw.shape[1] == len(self.feature_names):
+                    return raw[i][:, class_to_index[str(predictions[i])]]
+                if raw.shape[0] == len(self.model.classes_):
+                    return raw[class_to_index[str(predictions[i])]][i]
+            return raw[i]
 
         result = {}
         for label in y.unique():
             mask = (y.values == label)
-            rows = [shap_by_class[class_key(predictions[i])][i] for i in range(len(X)) if mask[i]]
+            rows = [per_row(i) for i in range(len(X)) if mask[i]]
             if not rows:
                 continue
             mean_abs = np.mean(np.abs(np.array(rows)), axis=0)

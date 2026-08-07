@@ -43,7 +43,7 @@ from src.balancing.smote_tomek import apply_smote_tomek
 from config.paths import (
     RAW_DATA_PATH, PROCESSED_DATA_PATH,
     BASELINE_MODEL_PATH, OPTIMIZED_MODEL_PATH,
-    SCALER_PATH, SHAP_VALUES_PATH, METRICS_PATH, COMPARISON_PATH, CONFUSION_MATRIX_PATH, ARTIFACTS_DIR, ensure_dirs
+    SCALER_PATH, SHAP_VALUES_PATH, METRICS_PATH, COMPARISON_PATH, CONFUSION_MATRIX_PATH, SHAP_PER_CLASS_PATH, ARTIFACTS_DIR, ensure_dirs
 )
 
 # Ensure artifact directories exist before saving files
@@ -1544,8 +1544,22 @@ async def get_shap_summary():
 
 @app.get("/api/explainability/shap-per-class")
 async def get_shap_per_class():
-    """Get top-3 SHAP features per AQI category for the optimized model."""
+    """Get top-3 SHAP features per AQI category for the optimized model.
+
+    Serves the precomputed pipeline artifact when available (fast), falling
+    back to on-demand computation otherwise.
+    """
     try:
+        if SHAP_PER_CLASS_PATH.exists():
+            with open(SHAP_PER_CLASS_PATH, "r", encoding="utf-8") as f:
+                per_class = json.load(f)
+            return {
+                "status": "success",
+                "per_class_importance": per_class,
+                "source": "artifact",
+                "timestamp": datetime.now().isoformat()
+            }
+
         if not OPTIMIZED_MODEL_PATH.exists():
             raise HTTPException(status_code=404, detail="Optimized model not trained. Train model first")
 
@@ -1564,6 +1578,7 @@ async def get_shap_per_class():
         return {
             "status": "success",
             "per_class_importance": per_class,
+            "source": "live",
             "timestamp": datetime.now().isoformat()
         }
     except HTTPException:

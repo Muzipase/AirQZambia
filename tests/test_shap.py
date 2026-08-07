@@ -11,6 +11,27 @@ from sklearn.datasets import make_classification
 from src.explainability.shap_explainer import ShapExplainer
 
 
+def test_shap_per_class_importance_handles_multiclass():
+    X, y = make_classification(
+        n_samples=150, n_features=5, n_informative=3, n_classes=4,
+        n_clusters_per_class=1, random_state=42,
+    )
+    X = pd.DataFrame(X, columns=[f"f{i}" for i in range(5)])
+    y = pd.Series(y)
+
+    model = SVC(kernel="rbf", probability=False, random_state=42)
+    model.fit(X, y)
+
+    explainer = ShapExplainer(model, X)
+    per_class = explainer.get_per_class_importance(X, y, top_k=2, representatives_per_class=4)
+
+    assert isinstance(per_class, dict)
+    assert len(per_class) == len(set(y))
+    for features in per_class.values():
+        assert len(features) == 2
+        assert all(item["feature"] in X.columns for item in features)
+
+
 def test_shap_explainer_runs_without_error():
     X, y = make_classification(
         n_samples=100, n_features=5, n_informative=3, random_state=42

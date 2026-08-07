@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from config.paths import (
     RAW_DATA_PATH, PROCESSED_DATA_PATH,
     BASELINE_MODEL_PATH, OPTIMIZED_MODEL_PATH,
-    METRICS_PATH, SCALER_PATH, SHAP_PLOTS_DIR, COMPARISON_PATH, CONFUSION_MATRIX_PATH, ensure_dirs,
+    METRICS_PATH, SCALER_PATH, SHAP_PLOTS_DIR, COMPARISON_PATH, CONFUSION_MATRIX_PATH, SHAP_PER_CLASS_PATH, ensure_dirs,
 )
 from src.ingestion.fetch_data import fetch_data
 from src.preprocessing.clean_data import clean_data
@@ -146,14 +146,20 @@ def run_pipeline(source: str = "auto", city: str = None, historical: bool = Fals
         json.dump({"labels": labels, "baseline": baseline_cm, "optimized": optimized_cm}, f, indent=2)
     logger.info("Confusion matrices saved to %s", CONFUSION_MATRIX_PATH)
 
-    # 8. Save SHAP beeswarm plot
+    # 8. Save SHAP beeswarm plot and per-class feature importance
     try:
         from src.explainability.shap_explainer import ShapExplainer
         explainer = ShapExplainer(optimized_model, X_train_bal)
         shap_sample = X_test.sample(n=min(50, len(X_test)), random_state=42)
         explainer.save_summary_plot(shap_sample, SHAP_PLOTS_DIR)
+
+        per_class_importance = explainer.get_per_class_importance(X_test, y_test)
+        SHAP_PER_CLASS_PATH.parent.mkdir(parents=True, exist_ok=True)
+        with open(SHAP_PER_CLASS_PATH, "w", encoding="utf-8") as f:
+            json.dump(per_class_importance, f, indent=2)
+        logger.info("Per-class SHAP importance saved to %s", SHAP_PER_CLASS_PATH)
     except Exception as e:
-        logger.warning("Could not save SHAP plot: %s", e)
+        logger.warning("Could not save SHAP artifacts: %s", e)
 
     logger.info("Pipeline complete.")
     return True

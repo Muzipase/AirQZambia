@@ -1,0 +1,58 @@
+{
+  "Moderate": [
+    {
+      "feature": "pm25",
+      "importance": 0.31369038065985294
+    },
+    {
+      "feature": "pm10",
+      "importance": 0.279102534883622
+    },
+    {
+      "feature": "pollution_load",
+      "importance": 0.15255566749000415
+    }
+  ],
+  "Good": [
+    {
+      "feature": "pm25",
+      "importance": 0.4316193768150209
+    },
+    {
+      "feature": "pm10",
+      "importance": 0.3295811996293745
+    },
+    {
+      "feature": "o3",
+      "importance": 0.17798756690106912
+    }
+  ],
+  "Unhealthy": [
+    {
+      "feature": "pm25",
+      "importance": 1.0129920285994043
+    },
+    {
+      "feature": "pm10",
+      "importance": 0.7056713180115343
+    },
+    {
+      "feature": "pollution_load",
+      "importance": 0.2327654413015673
+    }
+  ],
+  "Very Unhealthy": [
+    {
+      "feature": "pm25",
+      "importance": 1.7704768091366607
+    },
+    {
+      "feature": "pm10",
+      "importance": 1.3944073865194007
+    },
+    {
+      "feature": "pollution_load",
+      "importance": 0.18163280707416224
+    }
+  ]
+}
