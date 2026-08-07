@@ -334,7 +334,29 @@ export default function EvaluationPage() {
       </div>
 
       <div className="page-body">
-        <section className="card card-elevated animate-fade-in-up delay-100">
+        <section className="card animate-fade-in-up delay-100">
+          <div className="flex items-center gap-2 mb-3">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--zambia-green)" strokeWidth="2" strokeLinecap="round">
+              <circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" />
+            </svg>
+            <p className="text-xs font-bold text-[var(--text-primary)]">What these metrics mean</p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {[
+              { metric: 'Accuracy', desc: 'Percentage of all predictions that were correct.' },
+              { metric: 'Precision', desc: 'Of predicted positives, how many were actually positive.' },
+              { metric: 'Recall', desc: 'Of actual positives, how many were correctly identified.' },
+              { metric: 'F1 Score', desc: 'Harmonic mean balancing precision and recall.' },
+            ].map((item) => (
+              <div key={item.metric} className="flex items-start gap-2 text-xs">
+                <span className="w-1 h-1 rounded-full bg-[var(--zambia-green)] mt-1.5 flex-shrink-0" />
+                <span><span className="font-semibold text-[var(--text-primary)]">{item.metric}:</span> <span className="text-[var(--text-muted)]">{item.desc}</span></span>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="card card-elevated animate-fade-in-up delay-200">
           <h3 className="text-sm font-bold text-[var(--text-primary)] mb-6">Performance Overview</h3>
           <div className="flex flex-wrap justify-center gap-8 sm:gap-12">
             <ProgressCircle value={m.accuracy ?? 0} label="Accuracy" color="#006a3d" />
@@ -530,28 +552,6 @@ export default function EvaluationPage() {
             </div>
           </section>
         )}
-
-        <section className="card animate-fade-in-up delay-400">
-          <div className="flex items-center gap-2 mb-3">
-            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--zambia-green)" strokeWidth="2" strokeLinecap="round">
-              <circle cx="12" cy="12" r="10" /><path d="M12 16v-4M12 8h.01" />
-            </svg>
-            <p className="text-xs font-bold text-[var(--text-primary)]">What these metrics mean</p>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            {[
-              { metric: 'Accuracy', desc: 'Percentage of all predictions that were correct.' },
-              { metric: 'Precision', desc: 'Of predicted positives, how many were actually positive.' },
-              { metric: 'Recall', desc: 'Of actual positives, how many were correctly identified.' },
-              { metric: 'F1 Score', desc: 'Harmonic mean balancing precision and recall.' },
-            ].map((item) => (
-              <div key={item.metric} className="flex items-start gap-2 text-xs">
-                <span className="w-1 h-1 rounded-full bg-[var(--zambia-green)] mt-1.5 flex-shrink-0" />
-                <span><span className="font-semibold text-[var(--text-primary)]">{item.metric}:</span> <span className="text-[var(--text-muted)]">{item.desc}</span></span>
-              </div>
-            ))}
-          </div>
-        </section>
       </div>
     </div>
   );
