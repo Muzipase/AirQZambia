@@ -328,6 +328,57 @@ export default function EvaluationPage() {
 
   const detailRows = Object.entries(m).filter(([key]) => key !== 'per_class_metrics');
 
+  const pct = (v?: number | null) => (typeof v === 'number' ? `${(v * 100).toFixed(2)}%` : 'N/A');
+  const accDiff = comparison?.accuracy_difference;
+
+  const algorithmRows = [
+    {
+      name: 'Baseline SVM (RBF kernel)',
+      value: pct(baseline?.accuracy),
+      formula: 'K(xᵢ, xⱼ) = exp(−γ‖xᵢ − xⱼ‖²); f(x) = sgn(Σ αᵢyᵢK(xᵢ, x) + b), C = 1.0, γ = scale',
+    },
+    {
+      name: 'Optimized SVM (hybrid framework)',
+      value: pct(optimized?.accuracy ?? m.accuracy),
+      formula: 'Same RBF decision rule with tuned C ∈ [0.1, 10] (log-scale), γ ∈ {scale, auto}, kernel ∈ {rbf, poly}',
+    },
+    {
+      name: 'Bayesian Optimization (TPE)',
+      value: typeof accDiff === 'number' ? `${accDiff >= 0 ? '+' : ''}${(accDiff * 100).toFixed(2)} pp` : 'N/A',
+      formula: 'EI(x) = E[max(f(x) − f(x⁺), 0)] maximized over a TPE surrogate of cross-validation accuracy',
+    },
+    {
+      name: 'SMOTE-Tomek balancing',
+      value: 'k = min(5, n_min − 1)',
+      formula: 'SMOTE: x_new = xᵢ + λ(x_zi − xᵢ), λ ~ U(0, 1); Tomek removes mutual nearest-neighbour pairs of different classes',
+    },
+    {
+      name: 'SHAP explainability',
+      value: 'mean |φᵢ| per class',
+      formula: 'φᵢ = Σ over S ⊆ F∖{i} of [|S|!(|F|−|S|−1)!/|F|!] · [f(S ∪ {i}) − f(S)]',
+    },
+    {
+      name: 'Accuracy',
+      value: pct(m.accuracy),
+      formula: '(TP + TN) / (TP + TN + FP + FN)',
+    },
+    {
+      name: 'Precision (weighted)',
+      value: pct(m.precision),
+      formula: 'TP / (TP + FP), averaged over classes weighted by support',
+    },
+    {
+      name: 'Recall (weighted)',
+      value: pct(m.recall),
+      formula: 'TP / (TP + FN), averaged over classes weighted by support',
+    },
+    {
+      name: 'F1 Score',
+      value: pct(m.f1_score),
+      formula: '2 × Precision × Recall / (Precision + Recall)',
+    },
+  ];
+
   const perClassImportance = shapPerClass?.per_class_importance ?? {};
   const shapCategories = Object.keys(perClassImportance);
 
@@ -595,6 +646,29 @@ export default function EvaluationPage() {
             </div>
           </section>
         )}
+
+        <section className="card animate-fade-in-up delay-500">
+          <h3 className="text-sm font-bold text-[var(--text-primary)] mb-1">Algorithms &amp; Computation Formulas</h3>
+          <p className="text-xs text-[var(--text-muted)] mb-4">
+            Algorithms used by the hybrid framework with their current values and the formulas used for computation.
+          </p>
+          <div className="overflow-x-auto rounded-xl border border-[var(--border-subtle)]">
+            <table className="data-table">
+              <thead>
+                <tr><th>Algorithm</th><th>Value</th><th>Formula</th></tr>
+              </thead>
+              <tbody>
+                {algorithmRows.map((row) => (
+                  <tr key={row.name}>
+                    <td className="font-semibold whitespace-nowrap">{row.name}</td>
+                    <td className="font-bold whitespace-nowrap">{row.value}</td>
+                    <td className="text-[var(--text-muted)]">{row.formula}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
       </div>
     </div>
   );
