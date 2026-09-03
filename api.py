@@ -1439,24 +1439,25 @@ async def get_model_metrics(model_type: str = "optimized"):
 @app.post("/api/evaluation/cross-validate")
 async def cross_validate(folds: int = 5, model_type: str = "optimized"):
     """Perform cross-validation on trained model"""
+    if not PROCESSED_DATA_PATH.exists():
+        raise HTTPException(status_code=404, detail="Processed data not found. Run preprocessing first")
+    
+    model_path = OPTIMIZED_MODEL_PATH if model_type == "optimized" else BASELINE_MODEL_PATH
+    
+    if not model_path.exists():
+        raise HTTPException(status_code=404, detail=f"{model_type} model not trained")
+    
     try:
-        if not PROCESSED_DATA_PATH.exists():
-            raise HTTPException(status_code=404, detail="Processed data not found")
-        
-        model_path = OPTIMIZED_MODEL_PATH if model_type == "optimized" else BASELINE_MODEL_PATH
-        
-        if not model_path.exists():
-            raise HTTPException(status_code=404, detail=f"{model_type} model not trained")
-        
         data = await cache.get_processed_df()
         if data is None:
-            raise HTTPException(status_code=404, detail="Processed data not found")
+            raise HTTPException(status_code=404, detail="Failed to load processed data. Try re-running preprocessing")
         X = _get_feature_matrix(data)
         y = data['aqi_category']
         
         model = await cache.get_model(model_path, model_type)
+        if model is None:
+            raise HTTPException(status_code=404, detail=f"Failed to load {model_type} model")
         
-        # Cross-validate
         cv_results = await asyncio.to_thread(cross_validate_model, model, X, y, folds)
         
         return {
@@ -1468,9 +1469,11 @@ async def cross_validate(folds: int = 5, model_type: str = "optimized"):
             "std_accuracy": float(np.std(cv_results['test_accuracy'])) if cv_results['test_accuracy'] else 0.0,
             "timestamp": datetime.now().isoformat()
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Cross-validation failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail=f"Cross-validation failed: {str(e)}")
 
 @app.get("/api/evaluation/comparison")
 async def get_model_comparison():
