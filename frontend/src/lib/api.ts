@@ -1,5 +1,5 @@
 import useSWR from 'swr';
-import type { CityAirQuality, ConfusionMatrixData, EvaluationMetrics, ForecastData, ModelComparison, PredictionInput, PredictionResult } from '@/types';
+import type { CityAirQuality, ConfusionMatrixData, CrossValidationResult, EvaluationMetrics, ForecastData, ModelComparison, PredictionInput, PredictionResult } from '@/types';
 
 function getApiBaseUrl(): string {
   if (process.env.NEXT_PUBLIC_API_BASE_URL) {
@@ -166,6 +166,21 @@ export async function fetchConfusionMatrix(): Promise<ConfusionMatrixData | null
     return await request<ConfusionMatrixData>('/api/evaluation/confusion-matrix');
   } catch (error) {
     console.error('Error fetching confusion matrix:', error);
+    return null;
+  }
+}
+
+export async function runCrossValidation(
+  folds: number = 5,
+  modelType: string = 'optimized',
+): Promise<CrossValidationResult | null> {
+  try {
+    return await request<CrossValidationResult>(
+      `/api/evaluation/cross-validate?folds=${folds}&model_type=${modelType}`,
+      { method: 'POST' },
+    );
+  } catch (error) {
+    console.error('Error running cross-validation:', error);
     return null;
   }
 }

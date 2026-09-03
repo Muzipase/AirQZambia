@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import MetricCard from '@/components/MetricCard';
-import { fetchEvaluationMetrics, fetchModelComparison, fetchConfusionMatrix, fetchShapPerClass } from '@/lib/api';
-import { EvaluationMetrics, ModelComparison, ModelMetrics, ConfusionMatrixData, ShapPerClassData } from '@/types';
+import { fetchEvaluationMetrics, fetchModelComparison, fetchConfusionMatrix, fetchShapPerClass, runCrossValidation } from '@/lib/api';
+import { EvaluationMetrics, ModelComparison, ModelMetrics, ConfusionMatrixData, ShapPerClassData, CrossValidationResult } from '@/types';
 
 function ProgressCircle({ value, label, color }: { value: number; label: string; color: string }) {
   const radius = 38;
@@ -210,6 +210,10 @@ export default function EvaluationPage() {
   const [confusion, setConfusion] = useState<ConfusionMatrixData | null>(null);
   const [shapPerClass, setShapPerClass] = useState<ShapPerClassData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [cvFolds, setCvFolds] = useState(5);
+  const [cvResult, setCvResult] = useState<CrossValidationResult | null>(null);
+  const [cvRunning, setCvRunning] = useState(false);
+  const [cvError, setCvError] = useState<string | null>(null);
 
   useEffect(() => {
     let mounted = true;
@@ -235,6 +239,23 @@ export default function EvaluationPage() {
     load();
     return () => { mounted = false; };
   }, []);
+
+  const handleRunCV = useCallback(async () => {
+    setCvRunning(true);
+    setCvError(null);
+    try {
+      const result = await runCrossValidation(cvFolds);
+      if (result) {
+        setCvResult(result);
+      } else {
+        setCvError('Failed to run cross-validation. Ensure the backend and model are available.');
+      }
+    } catch {
+      setCvError('Unable to reach the backend. Confirm the API is running.');
+    } finally {
+      setCvRunning(false);
+    }
+  }, [cvFolds]);
 
   // The metrics endpoint wraps the model metrics under `metrics`; support both shapes.
   const m: ModelMetrics = useMemo(() => {
@@ -667,6 +688,124 @@ export default function EvaluationPage() {
                 ))}
               </tbody>
             </table>
+          </div>
+        </section>
+
+        <section className="card animate-fade-in-up delay-500">
+          <h3 className="text-sm font-bold text-[var(--text-primary)] mb-1">Cross-Validation</h3>
+          <p className="text-xs text-[var(--text-muted)] mb-4">
+            Run stratified k-fold cross-validation on the trained model to verify stability and detect overfitting.
+          </p>
+
+          <div className="flex items-center gap-4 mb-4">
+            <label className="text-xs font-semibold text-[var(--text-secondary)]" htmlFor="cv-folds">Folds</label>
+            <input
+              id="cv-folds"
+              type="range"
+              min={3}
+              max={10}
+              value={cvFolds}
+              onChange={(e) => setCvFolds(Number(e.target.value))}
+              className="w-40 accent-[var(--zambia-green)]"
+            />
+            <span className="text-sm font-bold text-[var(--text-primary)] tabular-nums w-6 text-center">{cvFolds}</span>
+            <button
+              onClick={handleRunCV}
+              disabled={cvRunning}
+              className="ml-auto inline-flex items-center gap-2 rounded-lg bg-[var(--zambia-green)] px-4 py-2 text-xs font-bold text-white transition hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {cvRunning ? (
+                <>
+                  <svg className="animate-spin h-3.5 w-3.5" viewBox="0 0 24 24" fill="none">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                  </svg>
+                  Running&hellip;
+                </>
+              ) : 'Run Cross-Validation'}
+            </button>
+          </div>
+
+          {cvError && (
+            <div className="rounded-lg border border-[#de3831]/30 bg-[#de3831]/5 px-4 py-3 text-xs font-semibold text-[#de3831]">
+              {cvError}
+            </div>
+          )}
+
+          {cvResult && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] px-4 py-3 text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">Mean Accuracy</p>
+                  <p className="text-lg font-extrabold text-[var(--zambia-green)]">{(cvResult.mean_accuracy * 100).toFixed(2)}%</p>
+                </div>
+                <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] px-4 py-3 text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">Std Deviation</p>
+                  <p className="text-lg font-extrabold text-[var(--text-primary)]">&plusmn;{(cvResult.std_accuracy * 100).toFixed(2)}%</p>
+                </div>
+                <div className="rounded-xl border border-[var(--border-subtle)] bg-[var(--bg-secondary)] px-4 py-3 text-center">
+                  <p className="text-[10px] font-bold uppercase tracking-wide text-[var(--text-muted)]">Model / Folds</p>
+                  <p className="text-lg font-extrabold text-[var(--text-primary)]">{cvResult.model_type} &middot; {cvResult.folds}-fold</p>
+                </div>
+              </div>
+
+              {cvResult.cv_results && (
+                <div className="overflow-x-auto rounded-xl border border-[var(--border-subtle)]">
+                  <table className="data-table">
+                    <thead>
+                      <tr>
+                        <th>Fold</th>
+                        <th>Accuracy</th>
+                        {cvResult.cv_results.test_precision && <th>Precision</th>}
+                        {cvResult.cv_results.test_recall && <th>Recall</th>}
+                        {cvResult.cv_results.test_f1 && <th>F1</th>}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {(cvResult.cv_results.test_accuracy || []).map((acc: number, i: number) => (
+                        <tr key={i}>
+                          <td className="font-semibold">Fold {i + 1}</td>
+                          <td className="font-bold">{(acc * 100).toFixed(2)}%</td>
+                          {cvResult.cv_results.test_precision && (
+                            <td className="font-bold">{(cvResult.cv_results.test_precision[i] * 100).toFixed(2)}%</td>
+                          )}
+                          {cvResult.cv_results.test_recall && (
+                            <td className="font-bold">{(cvResult.cv_results.test_recall[i] * 100).toFixed(2)}%</td>
+                          )}
+                          {cvResult.cv_results.test_f1 && (
+                            <td className="font-bold">{(cvResult.cv_results.test_f1[i] * 100).toFixed(2)}%</td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+
+        <section className="card animate-fade-in-up delay-500">
+          <div className="flex items-center gap-2 mb-3">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--zambia-green)" strokeWidth="2" strokeLinecap="round">
+              <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+            </svg>
+            <p className="text-xs font-bold text-[var(--text-primary)]">Evaluation Guidance</p>
+          </div>
+          <div className="space-y-2 text-xs text-[var(--text-muted)]">
+            <p>
+              Use the metrics above to compare model behavior and detect overfitting. A strong F1 score with
+              balanced precision and recall indicates a good classification model for air quality categories.
+            </p>
+            <p>
+              Cross-validation with multiple folds confirms the model generalizes well across different data
+              partitions. Low standard deviation across folds suggests stable, reliable predictions.
+            </p>
+            <p>
+              The baseline vs. optimized comparison highlights the contribution of the SMOTE-Tomek balancing
+              strategy, particularly for minority classes (Unhealthy, Very Unhealthy) that are under-represented
+              in the raw dataset.
+            </p>
           </div>
         </section>
       </div>

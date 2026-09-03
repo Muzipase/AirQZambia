@@ -114,6 +114,16 @@ export interface ShapPerClassData {
   timestamp?: string;
 }
 
+export interface CrossValidationResult {
+  status: string;
+  model_type: string;
+  folds: number;
+  cv_results: Record<string, number[]>;
+  mean_accuracy: number;
+  std_accuracy: number;
+  timestamp: string;
+}
+
 export interface SystemMetrics {
   cpu_usage?: number;
   memory_usage?: number;
