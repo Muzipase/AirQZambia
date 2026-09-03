@@ -245,13 +245,12 @@ export default function EvaluationPage() {
     setCvError(null);
     try {
       const result = await runCrossValidation(cvFolds);
-      if (result) {
-        setCvResult(result);
-      } else {
-        setCvError('Failed to run cross-validation. Ensure the backend and model are available.');
-      }
-    } catch {
-      setCvError('Unable to reach the backend. Confirm the API is running.');
+      setCvResult(result);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      setCvError(msg.includes('timeout') || msg.includes('AbortError')
+        ? 'Request timed out. Try fewer folds or check that the backend is responsive.'
+        : `Cross-validation failed: ${msg}`);
     } finally {
       setCvRunning(false);
     }

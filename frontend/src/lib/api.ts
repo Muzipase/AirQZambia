@@ -173,16 +173,21 @@ export async function fetchConfusionMatrix(): Promise<ConfusionMatrixData | null
 export async function runCrossValidation(
   folds: number = 5,
   modelType: string = 'optimized',
-): Promise<CrossValidationResult | null> {
-  try {
-    return await request<CrossValidationResult>(
-      `/api/evaluation/cross-validate?folds=${folds}&model_type=${modelType}`,
-      { method: 'POST' },
-    );
-  } catch (error) {
-    console.error('Error running cross-validation:', error);
-    return null;
+): Promise<CrossValidationResult> {
+  const url = `/api/evaluation/cross-validate?folds=${folds}&model_type=${modelType}`;
+  const response = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    signal: AbortSignal.timeout(300_000),
+  });
+
+  if (!response.ok) {
+    let detail = '';
+    try { detail = (await response.json())?.detail ?? ''; } catch { /* ignore */ }
+    throw new Error(detail || `Server responded with status ${response.status}`);
   }
+
+  return response.json() as Promise<CrossValidationResult>;
 }
 
 export function useModelComparison() {
