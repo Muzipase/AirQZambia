@@ -178,7 +178,7 @@ export async function runCrossValidation(
   const response = await fetch(url, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    signal: AbortSignal.timeout(300_000),
+    signal: AbortSignal.timeout(30_000),
   });
 
   if (!response.ok) {
@@ -187,7 +187,36 @@ export async function runCrossValidation(
     throw new Error(detail || `Server responded with status ${response.status}`);
   }
 
-  return response.json() as Promise<CrossValidationResult>;
+  const started = (await response.json()) as { status: string; job_id?: string };
+  if (started.status === 'completed' && started.job_id) {
+    return started as unknown as CrossValidationResult;
+  }
+  if (!started.job_id) {
+    throw new Error('Cross-validation could not be started on the backend.');
+  }
+
+  const jobId = started.job_id;
+  const statusUrl = `/api/evaluation/cross-validate/status/${jobId}`;
+  const deadline = Date.now() + 10 * 60 * 1000;
+
+  while (Date.now() < deadline) {
+    await new Promise((r) => setTimeout(r, 3000));
+    const pollRes = await fetch(statusUrl, { signal: AbortSignal.timeout(30_000) });
+    if (!pollRes.ok) {
+      let detail = '';
+      try { detail = (await pollRes.json())?.detail ?? ''; } catch { /* ignore */ }
+      throw new Error(detail || `Server responded with status ${pollRes.status}`);
+    }
+    const status = (await pollRes.json()) as Record<string, unknown>;
+    if (status.status === 'completed') {
+      return status as unknown as CrossValidationResult;
+    }
+    if (status.status === 'error') {
+      throw new Error(String(status.error || 'Cross-validation failed on the backend.'));
+    }
+  }
+
+  throw new Error('Cross-validation timed out after 10 minutes.');
 }
 
 export function useModelComparison() {

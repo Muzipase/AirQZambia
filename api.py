@@ -50,6 +50,44 @@ from config.paths import (
 ensure_dirs()
 
 
+# ==================== Background Job Store ====================
+
+_job_store: Dict[str, Dict[str, Any]] = {}
+_lock = asyncio.Lock()
+_job_cond = asyncio.Condition(lock=_lock)
+
+def _create_job(name: str, **meta) -> str:
+    job_id = f"{name}-{datetime.now().strftime('%Y%m%d%H%M%S')}-{len(_job_store)}"
+    _job_store[job_id] = {
+        "id": job_id,
+        "name": name,
+        "status": "running",
+        "progress": 0,
+        "result": None,
+        "error": None,
+        "created_at": datetime.now().isoformat(),
+        **meta,
+    }
+    return job_id
+
+async def _finish_job(job_id: str, result=None, error=None):
+    async with _job_cond:
+        job = _job_store.get(job_id)
+        if job is not None:
+            job["status"] = "error" if error else "completed"
+            job["result"] = result
+            job["error"] = error
+            job["progress"] = 100 if result else job.get("progress", 0)
+        _job_cond.notify_all()
+
+async def _run_cv_job(job_id: str, model, X: pd.DataFrame, y: pd.Series, folds: int):
+    try:
+        cv_results = await asyncio.to_thread(cross_validate_model, model, X, y, folds)
+        await _finish_job(job_id, result=cv_results)
+    except Exception as e:
+        logger.error(f"Cross-validation job {job_id} failed: {str(e)}")
+        await _finish_job(job_id, error=str(e))
+
 # ==================== In-Memory Cache ====================
 
 class _Cache:
@@ -1438,7 +1476,7 @@ async def get_model_metrics(model_type: str = "optimized"):
 
 @app.post("/api/evaluation/cross-validate")
 async def cross_validate(folds: int = 5, model_type: str = "optimized"):
-    """Perform cross-validation on trained model"""
+    """Start a background cross-validation job and return its job ID for polling."""
     if not PROCESSED_DATA_PATH.exists():
         raise HTTPException(status_code=404, detail="Processed data not found. Run preprocessing first")
     
@@ -1458,22 +1496,54 @@ async def cross_validate(folds: int = 5, model_type: str = "optimized"):
         if model is None:
             raise HTTPException(status_code=404, detail=f"Failed to load {model_type} model")
         
-        cv_results = await asyncio.to_thread(cross_validate_model, model, X, y, folds)
+        job_id = _create_job(f"cross-validate-{model_type}", model_type=model_type, folds=folds)
+        asyncio.create_task(_run_cv_job(job_id, model, X, y, folds))
         
         return {
-            "status": "success",
+            "status": "running",
+            "job_id": job_id,
             "model_type": model_type,
             "folds": folds,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Cross-validation start failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Cross-validation failed: {str(e)}")
+
+@app.get("/api/evaluation/cross-validate/status/{job_id}")
+async def cross_validate_status(job_id: str):
+    """Poll the status of a running cross-validation job."""
+    job = _job_store.get(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Cross-validation job not found")
+    
+    if job["status"] == "error":
+        return {
+            "status": "error",
+            "job_id": job_id,
+            "progress": job["progress"],
+            "error": job["error"],
+        }
+    if job["status"] == "completed":
+        cv_results = job["result"]
+        return {
+            "status": "completed",
+            "job_id": job_id,
+            "progress": 100,
+            "model_type": job.get("model_type", "optimized"),
+            "folds": job.get("folds", 5),
             "cv_results": cv_results,
             "mean_accuracy": float(np.mean(cv_results['test_accuracy'])) if cv_results['test_accuracy'] else 0.0,
             "std_accuracy": float(np.std(cv_results['test_accuracy'])) if cv_results['test_accuracy'] else 0.0,
             "timestamp": datetime.now().isoformat()
         }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Cross-validation failed: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Cross-validation failed: {str(e)}")
+    
+    return {
+        "status": "running",
+        "job_id": job_id,
+        "progress": job["progress"],
+    }
 
 @app.get("/api/evaluation/comparison")
 async def get_model_comparison():
