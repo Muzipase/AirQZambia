@@ -15,7 +15,7 @@ def cross_validate_model(model, X: pd.DataFrame, y: pd.Series, cv: int = 5) -> D
         cv=cv,
         scoring=["accuracy"],
         return_train_score=False,
-        n_jobs=-1,
+        n_jobs=1,
     )
 
     return {

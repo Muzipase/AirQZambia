@@ -1457,7 +1457,7 @@ async def cross_validate(folds: int = 5, model_type: str = "optimized"):
         model = await cache.get_model(model_path, model_type)
         
         # Cross-validate
-        cv_results = cross_validate_model(model, X, y, cv=folds)
+        cv_results = await asyncio.to_thread(cross_validate_model, model, X, y, folds)
         
         return {
             "status": "success",
