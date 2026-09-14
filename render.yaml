@@ -10,3 +10,17 @@ services:
         sync: false
       - key: ADMIN_API_TOKEN
         generateValue: true
+
+  - type: web
+    name: airqzambia-dashboard
+    runtime: python
+    pythonVersion: "3.13"
+    buildCommand: pip install -r requirements-dashboard.txt
+    startCommand: streamlit run app/streamlit_app.py --server.address 0.0.0.0 --server.port $PORT --server.headless true
+    plan: free
+    envVars:
+      - key: API_BASE_URL
+        fromService:
+          name: air-quality-hybrid-framework
+          type: web
+          property: host
