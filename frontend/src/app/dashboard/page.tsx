@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { fetchCityAirQuality, fetchCityForecast, fetchLiveWeather, fetchLiveWeatherHourly } from '@/lib/api';
+import { pm25ToAqi } from '@/lib/aqi';
 import { useCity } from '@/lib/city-context';
 import type { CityAirQuality, ForecastData, HourlyForecast, DailyForecast } from '@/types';
 
@@ -40,14 +41,6 @@ function getCategoryBg(category: string): string {
     case 'Hazardous': return '#450a0a';
     default: return '#fefce8';
   }
-}
-
-function getAQIValue(pm25: number) {
-  if (pm25 <= 12.0) return Math.round((pm25 / 12.0) * 50);
-  if (pm25 <= 35.4) return Math.round(50 + ((pm25 - 12.0) / (35.4 - 12.0)) * 50);
-  if (pm25 <= 55.4) return Math.round(100 + ((pm25 - 35.4) / (55.4 - 35.4)) * 50);
-  if (pm25 <= 150.4) return Math.round(150 + ((pm25 - 55.4) / (150.4 - 35.4)) * 100);
-  return Math.round(200 + ((pm25 - 150.4) / (500 - 150.4)) * 300);
 }
 
 function formatHour(timestamp: string): string {
@@ -172,7 +165,7 @@ export default function Dashboard() {
     }
     return d;
   });
-  const aqiValue = hourlyNow.length > 0 ? hourlyNow[0].aqi : (data ? getAQIValue(data.readings.pm25) : 0);
+  const aqiValue = hourlyNow.length > 0 ? hourlyNow[0].aqi : (data ? pm25ToAqi(data.readings.pm25) : 0);
   const categoryColor = hourlyNow.length > 0 ? getCategoryColor(hourlyNow[0].category) : (data ? getCategoryColor(data.category) : '#eab308');
   const cityInfo = CITY_INFO[selectedCity] || { country: 'Zambia', province: '' };
   const currentPm25 = hourlyNow.length > 0 ? hourlyNow[0].pm25 : (data?.readings.pm25 ?? 0);
@@ -284,7 +277,7 @@ export default function Dashboard() {
                     className="pollutant-bar-fill"
                     style={{
                       width: `${Math.min((currentPm25 / 150) * 100, 100)}%`,
-                      background: getCategoryColor(getAQIValue(currentPm25) <= 50 ? 'Good' : getAQIValue(currentPm25) <= 100 ? 'Moderate' : 'Unhealthy'),
+                      background: getCategoryColor(pm25ToAqi(currentPm25) <= 50 ? 'Good' : pm25ToAqi(currentPm25) <= 100 ? 'Moderate' : 'Unhealthy'),
                     }}
                   />
                 </div>

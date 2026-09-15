@@ -4,6 +4,7 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { fetchCityAirQuality, fetchLiveWeather } from '@/lib/api';
+import { pm25ToAqi } from '@/lib/aqi';
 
 const MapView = dynamic(() => import('@/components/MapView'), { ssr: false });
 
@@ -27,13 +28,6 @@ function aqiCategory(aqi: number): string {
   if (aqi <= 150) return 'Unhealthy for Sensitive';
   if (aqi <= 200) return 'Unhealthy';
   return 'Hazardous';
-}
-
-function pm25ToAqi(pm25: number): number {
-  if (pm25 <= 12) return Math.round((pm25 / 12) * 50);
-  if (pm25 <= 35.4) return Math.round(50 + ((pm25 - 12) / 23.4) * 50);
-  if (pm25 <= 55.4) return Math.round(100 + ((pm25 - 35.4) / 20) * 50);
-  return Math.round(150 + ((pm25 - 55.4) / 95) * 100);
 }
 
 export default function PollutionMapPage() {

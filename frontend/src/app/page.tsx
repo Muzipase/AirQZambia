@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCity } from '@/lib/city-context';
 import { fetchCityAirQuality } from '@/lib/api';
+import { pm25ToAqi } from '@/lib/aqi';
 import type { CityAirQuality } from '@/types';
 
 const cities = [
@@ -61,14 +62,6 @@ export default function LandingPage() {
   const router = useRouter();
   const [liveData, setLiveData] = useState<CityAirQuality | null>(null);
 
-  const getAQIValue = (pm25: number) => {
-    if (pm25 <= 12.0) return Math.round((pm25 / 12.0) * 50);
-    if (pm25 <= 35.4) return Math.round(50 + ((pm25 - 12.0) / (35.4 - 12.0)) * 50);
-    if (pm25 <= 55.4) return Math.round(100 + ((pm25 - 35.4) / (55.4 - 35.4)) * 50);
-    if (pm25 <= 150.4) return Math.round(150 + ((pm25 - 55.4) / (150.4 - 35.4)) * 100);
-    return Math.round(200 + ((pm25 - 150.4) / (500 - 150.4)) * 300);
-  };
-
   const getCategoryColor = (cat: string) => {
     switch (cat) {
       case 'Good': return 'var(--aqi-good)';
@@ -91,7 +84,7 @@ export default function LandingPage() {
     return () => clearInterval(interval);
   }, [loadLive]);
 
-  const aqiValue = liveData ? getAQIValue(liveData.readings.pm25) : null;
+  const aqiValue = liveData ? pm25ToAqi(liveData.readings.pm25) : null;
   const category = liveData?.category ?? null;
   const healthMsg = liveData?.health?.message ?? null;
   const catColor = category ? getCategoryColor(category) : 'var(--aqi-good)';

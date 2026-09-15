@@ -272,6 +272,27 @@ def get_pollutant_readings(source="auto", city="Lusaka"):
     return dict(SAMPLE_READINGS)
 
 
+def pm25_to_aqi(pm25):
+    """US-EPA AQI index from a PM2.5 concentration using EPA breakpoints.
+
+    Mirrors src evaluation (api.py `_pm25_to_aqi`) and the frontend lib so all
+    UIs present the same index for the same concentration.
+    """
+    breakpoints = [
+        (0.0, 12.0, 0, 50),
+        (12.0, 35.4, 50, 100),
+        (35.4, 55.4, 100, 150),
+        (55.4, 150.4, 150, 200),
+        (150.4, 250.4, 200, 300),
+        (250.4, 500.4, 300, 500),
+    ]
+    pm25 = float(pm25)
+    for c_low, c_high, i_low, i_high in breakpoints:
+        if pm25 <= c_high:
+            return int(round(i_low + ((pm25 - c_low) / (c_high - c_low)) * (i_high - i_low)))
+    return 500
+
+
 def classify_pm25(pm25):
     """Return (aqi_level, health_message) using US-EPA PM2.5 breakpoints."""
     if pm25 <= 12.0:
@@ -302,7 +323,7 @@ def get_live_aqi_for_city(source="auto", city="Lusaka"):
         if raw is not None and "pm25" in raw.columns and len(raw) > 0:
             latest_pm25 = float(raw["pm25"].iloc[-1])
             level, message = classify_pm25(latest_pm25)
-            return round(latest_pm25, 1), level, message
+            return pm25_to_aqi(latest_pm25), level, message
     return get_aqi_for_city(city)
 
 
@@ -327,7 +348,7 @@ def get_live_snapshot(city="Lusaka", source="auto"):
         timestamp = predict.get("timestamp")
         return {
             "city": city,
-            "value": round(latest, 1),
+            "value": pm25_to_aqi(latest),
             "unit": "AQI",
             "label": level,
             "color": _aqi_color(level),
