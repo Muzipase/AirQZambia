@@ -1,3 +1,11 @@
+"""Wrapper around SHAP's KernelExplainer for model-agnostic explanations.
+
+Kmeans-based background data is used to keep the sampling budget
+tractable.  The class exposes methods for global summaries,
+per-class feature importance, single-instance explanations, and
+static plot generation.
+"""
+
 import logging
 from pathlib import Path
 
@@ -11,6 +19,14 @@ N_KMEANS_BACKGROUND = 50
 
 
 class ShapExplainer:
+    """Model-agnostic SHAP explainer backed by a kmeans background set.
+
+    Args:
+        model: A fitted scikit-learn estimator (must expose
+            ``predict_proba`` or ``decision_function``).
+        background_data: Feature matrix used to build the kmeans
+            background distribution.
+    """
     def __init__(self, model, background_data: pd.DataFrame):
         self.model = model
         self.background_data = background_data.copy()
@@ -27,12 +43,14 @@ class ShapExplainer:
         )
 
     def _model_predict(self, data: np.ndarray) -> np.ndarray:
+        """Thin adapter that feeds a numpy array back through the model."""
         df = pd.DataFrame(data, columns=self.feature_names)
         if hasattr(self.model, "predict_proba") and callable(getattr(self.model, "predict_proba", None)):
             return self.model.predict_proba(df)
         return self.model.decision_function(df)
 
     def get_summary(self):
+        """Return mean-absolute SHAP values per feature over a kmeans sample."""
         n_clusters = min(25, len(self.background_data))
         kmeans_obj = shap.kmeans(self.background_data, n_clusters)
         sample = pd.DataFrame(kmeans_obj.data, columns=self.feature_names)
@@ -96,6 +114,7 @@ class ShapExplainer:
         class_to_index = {str(cls): i for i, cls in enumerate(self.model.classes_)}
 
         def per_row(i):
+            """Extract the SHAP vector for sample *i*, aligned to its predicted class."""
             if isinstance(raw, list):
                 return raw[class_to_index[str(predictions[i])]][i]
             if isinstance(raw, np.ndarray) and raw.ndim == 3:
@@ -120,7 +139,21 @@ class ShapExplainer:
         return result
 
     def explain_instance(self, input_df: pd.DataFrame):
-        shap_values = self.explainer.shap_values(input_df)
+        """Compute SHAP values for a single prediction instance.
+
+        Args:
+            input_df: Single-row DataFrame to explain.
+
+        Returns:
+            Dictionary with ``feature_names``, ``shap_values``,
+            and ``base_values`` (expected value per class).
+        """
+        n_features = input_df.shape[1]
+        # Use a reduced nsamples budget — default 200*n_features is very slow for
+        # KernelExplainer; 200 evaluations (~20x faster) is sufficient for a
+        # single-instance explanation.
+        nsamples = max(100, 10 * n_features)
+        shap_values = self.explainer.shap_values(input_df, nsamples=nsamples)
         if isinstance(shap_values, list):
             values = [vals[0].tolist() if len(vals) else [] for vals in shap_values]
         else:

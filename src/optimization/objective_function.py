@@ -1,9 +1,17 @@
+"""Optuna objective function for SVM hyperparameter tuning.
+
+Defines the single-trial objective that samples hyperparameters from the search
+space, fits an SVM, and returns the cross-validated macro recall score that
+Optuna maximizes.
+"""
+
 from sklearn.model_selection import cross_val_score
 from sklearn.svm import SVC
 from src.optimization.search_space import get_svm_search_space
 
 
 def svm_objective(trial, X, y, cv: int = 3):
+    """Evaluate one set of SVM hyperparameters and return the mean macro recall."""
     params = get_svm_search_space(trial)
     model = SVC(
         kernel=params["kernel"],

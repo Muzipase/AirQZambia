@@ -57,6 +57,7 @@ const aqiLevels = [
   { range: '201+', label: 'Hazardous', color: 'var(--aqi-hazardous)', desc: 'Emergency — seek medical help' },
 ];
 
+/** Landing page: hero with live AQI preview, how-it-works, city picker, and AQI scale. */
 export default function LandingPage() {
   const { selectedCity, setSelectedCity } = useCity();
   const router = useRouter();

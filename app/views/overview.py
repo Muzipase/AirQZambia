@@ -69,6 +69,7 @@ def _pollutant_items(readings):
 
 
 def _trend_direction(current, previous):
+    """Trend arrow term (worse/better/flat) between two concentrations."""
     if previous is None or previous == 0:
         return "flat"
     diff = current - previous
@@ -78,6 +79,7 @@ def _trend_direction(current, previous):
 
 
 def _conditions_rows(snapshot, period_df):
+    """Per-pollutant rows (value/status/trend) for the conditions table."""
     rows = []
     for key, meta in POLLUTANTS.items():
         current = snapshot["readings"].get(key)
@@ -107,6 +109,7 @@ def _conditions_rows(snapshot, period_df):
 
 
 def _trend_chart(period, df):
+    """Plotly trend chart for the given period frame (hourly or daily)."""
     import plotly.graph_objects as go
 
     if period == "24h":
@@ -153,6 +156,7 @@ def _trend_chart(period, df):
 
 
 def render():
+    """Main entry point: render the Command Center overview page."""
     stats = fetch_api_status()
     model_names = get_model_names(stats)
     source = SOURCE_API_MAP.get(st.session_state.get("data_source", ""), "auto")

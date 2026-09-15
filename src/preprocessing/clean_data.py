@@ -1,3 +1,10 @@
+"""Raw data cleaning for the AirQ Zambia pipeline.
+
+Normalizes column names, removes duplicate rows, drops records where all
+pollutant columns are missing, and coerces sensor columns to numeric types.
+This is the first preprocessing step applied to freshly fetched Open-Meteo/OpenAQ data.
+"""
+
 import pandas as pd
 
 

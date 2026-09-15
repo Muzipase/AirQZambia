@@ -1,3 +1,11 @@
+"""Feature engineering for air-quality classification.
+
+Creates the categorical AQI target variable from raw PM2.5/PM10 readings,
+derives pollution-ratio and pollution-load features, flags extreme readings,
+and extracts temporal components (hour, day-of-week, month) from timestamps.
+These engineered features feed directly into the SVM models downstream.
+"""
+
 import numpy as np
 import pandas as pd
 from typing import Optional

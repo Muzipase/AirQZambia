@@ -1,3 +1,11 @@
+"""Bayesian hyperparameter optimization for the SVM classifier.
+
+Uses Optuna's Tree-structured Parzen Estimator (TPE) sampler with median
+pruning to efficiently search the SVM hyperparameter space.  Automatically
+adjusts cross-validation fold count to accommodate small or imbalanced
+classes in the training data.
+"""
+
 import logging
 
 import optuna
@@ -9,6 +17,7 @@ N_STARTUP_TRIALS = 10
 
 
 def optimize_svm_hyperparameters(X, y, n_trials: int = 20, cv: int = 3):
+    """Run an Optuna study to find the best SVM hyperparameters via cross-validated macro recall."""
     # Adjust CV folds: StratifiedKFold requires at least 2 samples per class
     min_class_count = y.value_counts().min()
     cv = min(cv, max(2, min_class_count))

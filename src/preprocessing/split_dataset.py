@@ -1,3 +1,5 @@
+"""Train/test splitting with stratification for imbalanced AQI classes."""
+
 from sklearn.model_selection import train_test_split
 import pandas as pd
 

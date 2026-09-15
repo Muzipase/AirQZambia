@@ -32,6 +32,7 @@ MINORITY_CLASSES = ("Very Unhealthy", "Unhealthy")
 
 
 def _fraction(values, key, default="N/A"):
+    """Convert a metric value to a formatted percentage string, returning *default* on error."""
     try:
         value = values.get(key)
         if value is None:
@@ -42,6 +43,7 @@ def _fraction(values, key, default="N/A"):
 
 
 def _support_sum(metrics):
+    """Return the total sample support summed across all per-class metrics."""
     per = (metrics or {}).get("per_class_metrics") or {}
     return sum(int(v.get("support") or 0) for v in per.values())
 
@@ -78,6 +80,7 @@ def _spotlight_for(response, optimized, baseline):
 
 
 def render():
+    """Render the Model Evaluation page: side-by-side baseline vs. optimized metrics and comparison callouts."""
     stats = fetch_api_status()
     model_names = get_model_names(stats)
 

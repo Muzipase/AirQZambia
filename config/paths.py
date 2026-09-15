@@ -1,3 +1,11 @@
+"""Centralised filesystem paths for the AirQ Zambia pipeline.
+
+Every external I/O in the project (data reads, model persistence,
+metric snapshots, SHAP artefacts) resolves through the constants
+defined here so that directory layout changes require edits in only
+one place.
+"""
+
 from pathlib import Path
 
 # Project root (two levels up from this file)
@@ -21,6 +29,7 @@ CONFUSION_MATRIX_PATH = ARTIFACTS_DIR / "confusion_matrix.json"
 SHAP_PER_CLASS_PATH = ARTIFACTS_DIR / "shap_per_class.json"
 
 def ensure_dirs():
+    """Create the core output directories if they do not already exist."""
     for p in (DATA_DIR, MODELS_DIR, ARTIFACTS_DIR):
         p.mkdir(parents=True, exist_ok=True)
 

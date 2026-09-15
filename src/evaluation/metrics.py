@@ -1,3 +1,10 @@
+"""Compute standard classification metrics and optionally persist them.
+
+Accuracy, weighted precision / recall / F1, and a full per-class
+report are returned as a flat dictionary suitable for JSON
+serialisation and downstream comparison.
+"""
+
 import json
 import logging
 import numpy as np
@@ -9,6 +16,16 @@ logger = logging.getLogger(__name__)
 
 
 def compute_metrics(y_true, y_pred, save_path: Optional[Path] = None) -> Dict[str, Any]:
+    """Evaluate predictions and return a metrics dictionary.
+
+    Args:
+        y_true: Ground-truth labels.
+        y_pred: Predicted labels.
+        save_path: If provided the metrics are written as JSON to this path.
+
+    Returns:
+        Dictionary containing overall and per-class metrics.
+    """
     metrics = {
         "accuracy": float(accuracy_score(y_true, y_pred)),
         "precision": float(precision_score(y_true, y_pred, average="weighted", zero_division=0)),

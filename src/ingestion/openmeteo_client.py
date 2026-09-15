@@ -1,3 +1,10 @@
+"""Open-Meteo client for air-quality and weather/historical data.
+
+Provides retrying, concurrency-safe fetchers for live and archived pollution
+plus weather variables for the Zambian study cities, and normalises responses
+into the shared wide-format DataFrame schema used across the pipeline.
+"""
+
 import logging
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -207,6 +214,7 @@ def fetch_historical_data(
     frames: List[pd.DataFrame] = []
 
     def _fetch_city(entry: Dict) -> pd.DataFrame:
+        """Fetch historical data for one city in monthly chunks and return a combined hourly DataFrame."""
         name = entry["city"]
         lat = entry["latitude"]
         lon = entry["longitude"]
@@ -317,6 +325,7 @@ def fetch_openmeteo_measurements(
     frames: List[pd.DataFrame] = []
 
     def _fetch_one(entry: Dict) -> pd.DataFrame:
+        """Fetch air-quality and weather forecasts for one city and build the combined DataFrame."""
         name = entry["city"]
         lat = entry["latitude"]
         lon = entry["longitude"]

@@ -1,3 +1,9 @@
+"""Standalone HTML report generation for the AirQ Zambia pipeline.
+
+Builds a minimal, self-contained HTML document from titled section bodies so
+evaluation findings can be shared without a separate web server or app.
+"""
+
 from pathlib import Path
 from typing import Dict, List
 

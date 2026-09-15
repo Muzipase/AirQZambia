@@ -30,6 +30,7 @@ function aqiCategory(aqi: number): string {
   return 'Hazardous';
 }
 
+/** Map page: live AQI markers per city on an interactive map with a color legend and quick city cards. */
 export default function PollutionMapPage() {
   const [cityData, setCityData] = useState<Record<string, { aqi: number; category: string; pm25: number; temperature: number; humidity: number; wind_speed: number }>>({});
   const [loading, setLoading] = useState(true);

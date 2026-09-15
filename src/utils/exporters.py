@@ -1,3 +1,10 @@
+"""Data and model serialization utilities for the AirQ Zambia pipeline.
+
+Provides format-agnostic save/load helpers for DataFrames (CSV, Parquet, pickle),
+joblib-serialised ML models, and arbitrary JSON objects.  All writers
+auto-create parent directories so callers never need to pre-build output trees.
+"""
+
 from pathlib import Path
 from typing import Any, Optional
 
@@ -13,6 +20,7 @@ except Exception:  # pragma: no cover - joblib optional
 
 
 def _ensure_parent(path: Path) -> None:
+	"""Create parent directories for *path* if they do not yet exist."""
 	path = Path(path)
 	if not path.parent.exists():
 		path.parent.mkdir(parents=True, exist_ok=True)
@@ -78,12 +86,17 @@ def save_model(obj: Any, path: str) -> Path:
 
 
 def load_model(path: str) -> Any:
+	"""Deserialize a joblib-serialised object from *path*.
+
+	Raises a RuntimeError if ``joblib`` is not available.
+	"""
 	if joblib is None:
 		raise RuntimeError("joblib is required to use load_model")
 	return joblib.load(path)
 
 
 def save_json(obj: Any, path: str, indent: Optional[int] = 2) -> Path:
+	"""Serialise *obj* as UTF-8 JSON to *path*, creating parent dirs as needed."""
 	import json
 
 	p = Path(path)
@@ -94,6 +107,7 @@ def save_json(obj: Any, path: str, indent: Optional[int] = 2) -> Path:
 
 
 def load_json(path: str) -> Any:
+	"""Load and return the parsed JSON content of *path*."""
 	import json
 
 	p = Path(path)

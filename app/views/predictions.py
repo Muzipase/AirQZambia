@@ -29,6 +29,7 @@ from state import (
 
 
 def _result_card(city, prediction, confidence, readings=None):
+    """Render a styled result card showing the model's AQI classification and per-pollutant live signals."""
     color = {"Good": "#16a34a", "Moderate": "#eab308",
              "Unhealthy": "#f97316", "Very Unhealthy": "#ef4444",
              "Hazardous": "#5f0f0f"}.get(prediction, "#006a3d")
@@ -107,6 +108,7 @@ def _result_card(city, prediction, confidence, readings=None):
 
 
 def render():
+    """Render the Predictions page: city scenario form, hybrid-SVM result card and confidence bar."""
     stats = fetch_api_status()
     model_names = get_model_names(stats)
 

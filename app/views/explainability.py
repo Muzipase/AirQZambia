@@ -22,6 +22,7 @@ from state import (
 
 
 def _is_shap_summary(value):
+    """Return True if *value* looks like a structured SHAP summary dict returned by the backend."""
     return (
         isinstance(value, dict)
         and ("feature_importances" in value or "importance" in value
@@ -79,6 +80,7 @@ def _feature_bars(summary):
 
 
 def render():
+    """Render the Explainability page: SHAP feature importance, per-class breakdown and scenario SHAP form."""
     stats = fetch_api_status()
     model_names = get_model_names(stats)
 
@@ -173,6 +175,7 @@ def render():
                                           key="ex_temperature")
             humidity = st.number_input("Humidity (%)", 0.0, 100.0, 60.0, 0.1, key="ex_humidity")
             wind_speed = st.number_input("Wind speed (m/s)", 0.0, 60.0, 5.0, 0.1, key="ex_wind")
+            rainfall = st.number_input("Rainfall (mm)", 0.0, 60.0, 0.0, 0.1, key="ex_rainfall")
 
         explain = st.form_submit_button("Explain scenario")
 
@@ -180,7 +183,7 @@ def render():
         payload = {
             "pm25": pm25, "pm10": pm10, "no2": no2, "so2": so2, "co": co,
             "o3": o3, "temperature": temperature, "humidity": humidity,
-            "wind_speed": wind_speed,
+            "wind_speed": wind_speed, "rainfall": rainfall,
         }
         with st.spinner("Computing SHAP explanation..."):
             explanation = post_explain_prediction(payload)

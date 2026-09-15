@@ -1,3 +1,9 @@
+"""Wall-clock timing utilities for profiling pipeline stages.
+
+Exposes the ``Timer`` context manager/decorator and the ``time_func`` decorator
+for measuring and reporting execution time of data-fetching and training steps.
+"""
+
 import time
 from contextlib import ContextDecorator
 from typing import Optional
@@ -17,6 +23,7 @@ class Timer(ContextDecorator):
 	"""
 
 	def __init__(self, name: Optional[str] = None, verbose: bool = False):
+		"""Initialise the timer with an optional label and verbose reporting flag."""
 		self.name = name
 		self.verbose = verbose
 		self.start: Optional[float] = None
@@ -37,7 +44,9 @@ class Timer(ContextDecorator):
 
 
 def time_func(fn):
+	"""Decorator that prints the wall-clock duration of the wrapped function."""
 	def wrapper(*args, **kwargs):
+		"""Invoke *fn* and print its wall-clock duration to stdout."""
 		t0 = time.perf_counter()
 		res = fn(*args, **kwargs)
 		t1 = time.perf_counter()

@@ -1,3 +1,10 @@
+"""Unified ingestion entry point for the AirQ Zambia pipeline.
+
+Wraps the Open-Meteo and OpenAQ clients behind a single ``fetch_data`` API with
+source selection (``"auto"`` fallback), then validates and normalises the fetched
+DataFrames into the canonical wide-format schema.
+"""
+
 import logging
 
 import numpy as np

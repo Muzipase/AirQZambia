@@ -1,3 +1,11 @@
+"""Apply SMOTE-Tomek hybrid resampling to balance class distributions.
+
+SMOTE generates synthetic minority-class samples, then Tomek-link
+cleaning removes borderline / noisy pairs.  A cap (``MAX_SYNTHETIC_RATIO``)
+prevents runaway synthetic generation for severely under-represented
+classes.
+"""
+
 import logging
 import pandas as pd
 from imblearn.combine import SMOTETomek
@@ -14,6 +22,18 @@ def apply_smote_tomek(
     y: pd.Series,
     max_synthetic_ratio: float = MAX_SYNTHETIC_RATIO,
 ) -> Tuple[pd.DataFrame, pd.Series]:
+    """Resample features and labels using SMOTE-Tomek with a synthetic cap.
+
+    Args:
+        X: Feature matrix.
+        y: Target labels.
+        max_synthetic_ratio: Maximum ratio of synthetic samples relative to
+            the majority class size (default 1.5).
+
+    Returns:
+        Tuple of (X_balanced, y_balanced) DataFrames / Series.
+        If resampling is unnecessary the originals are returned as copies.
+    """
     if X is None or y is None:
         return pd.DataFrame(), pd.Series(dtype=object)
 

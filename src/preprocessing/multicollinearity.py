@@ -1,3 +1,11 @@
+"""Multicollinearity detection via Variance Inflation Factor (VIF).
+
+Computes VIF for each numeric feature and flags those exceeding a configurable
+threshold (default 10).  High multicollinearity can inflate coefficient
+variance and reduce SVM decision-boundary stability, so flagged features may
+be dropped before training.
+"""
+
 import logging
 from typing import List, Optional, Tuple
 

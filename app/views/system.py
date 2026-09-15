@@ -46,6 +46,7 @@ VIEW_FILES = [
 
 
 def _get_dependency_versions():
+    """Map of dependency name -> installed version (or None when missing)."""
     versions = {}
     for distro, module in DEPENDENCIES.items():
         try:
@@ -57,6 +58,7 @@ def _get_dependency_versions():
 
 
 def _run_command(command, timeout=120):
+    """Run a subprocess command synchronously, returning (returncode, combined stdout+stderr)."""
     try:
         result = subprocess.run(
             command, cwd=ROOT, capture_output=True, text=True, shell=False, timeout=timeout
@@ -69,6 +71,7 @@ def _run_command(command, timeout=120):
 
 
 def _report(title, ok, output):
+    """Show a pass/fail spotlight card and an expander with the raw validation command output."""
     from style_assets import spotlight
 
     spotlight(
@@ -85,6 +88,7 @@ def _report(title, ok, output):
 
 
 def render():
+    """Render the System Health page: dependencies, codebase compilation, test suite and validation checks."""
     stats = fetch_api_status()
     model_names = get_model_names(stats)
 

@@ -114,6 +114,7 @@ with st.sidebar.expander("Data source", expanded=False):
     api_source = SOURCE_API_MAP[source_label]
 
     def _clear_feed():
+        """Drop the cached API-status payload so the sidebar refresh re-probes."""
         fetch_api_status.clear()
 
     if st.button("Refresh status", key="refresh_status"):

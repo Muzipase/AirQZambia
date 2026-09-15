@@ -1,3 +1,9 @@
+"""Time-series plotting helpers for pollutant and weather observations.
+
+Provides a matplotlib-based line plot for exploring hourly air-quality readings
+across the study cities.
+"""
+
 from typing import Optional
 from pathlib import Path
 

@@ -675,10 +675,12 @@ footer:after {{
 # ---------------------------------------------------------------------------
 
 def insert_style():
+    """Inject the global stylesheet into the app via st.markdown."""
     st.markdown(STYLE_SHEET, unsafe_allow_html=True)
 
 
 def live_pill(text="Live"):
+    """Pulsing "Live" badge pill as an HTML fragment."""
     return f"<span class='live-pill'><span class='p'></span>{text}</span>"
 
 
@@ -699,6 +701,7 @@ def badge_html(label, style=None):
 
 
 def aqi_badge_html(label):
+    """Soft AQI pill for a category, as an HTML fragment (alias of badge_html)."""
     return badge_html(label)
 
 
@@ -1054,6 +1057,7 @@ def status_list(rows):
 
 
 def spotlight(value, label, sub, badge_text=None, badge_style="background:#f0fdf4;color:#15803d;"):
+    """Highlight card for a headline metric with an optional status badge."""
     st.markdown(
         _block(
             f"""
@@ -1072,6 +1076,7 @@ def spotlight(value, label, sub, badge_text=None, badge_style="background:#f0fdf
 
 
 def risk_chip(level):
+    """Coloured "Low/Moderate/High risk" chip for an AQI category, as HTML."""
     mapping = {
         "Good": ("#f0fdf4", "#15803d", "Low"),
         "Moderate": ("#fefce8", "#a16207", "Moderate"),
@@ -1085,6 +1090,7 @@ def risk_chip(level):
 
 
 def banner(kind, message):
+    """Full-width info/warn/err banner; ``message`` may contain HTML."""
     ico_map = {"info": "check", "warn": "alert", "err": "alert"}
     st.markdown(
         f"<div class='banner {kind}'><span class='ico'>{ico(ico_map.get(kind, 'check'), 18)}</span>"
@@ -1094,6 +1100,7 @@ def banner(kind, message):
 
 
 def panel_open(title, icon=None, subtitle=""):
+    """Open a white panel card with an optional icon and subtitle."""
     icon_html = f"<span class='panel-icon'>{ico(icon) if icon and icon not in ('', None) else ''}</span>"
     sub = f"<p class='panel-sub'>{subtitle}</p>" if subtitle else ""
     st.markdown(
@@ -1114,6 +1121,7 @@ def panel_open(title, icon=None, subtitle=""):
 
 
 def panel_close():
+    """Close a panel opened with panel_open (emits a closing div tag)."""
     st.markdown("</div>", unsafe_allow_html=True)
 
 
@@ -1135,6 +1143,7 @@ def kpi_grid(items):
 
 
 def stat_strip(items):
+    """Inline key-value statistic strip; items: list of (label, value)."""
     cells = "".join(
         f"<div class='ss'><div class='k'>{k}</div><div class='v'>{v}</div></div>"
         for k, v in items
@@ -1143,6 +1152,7 @@ def stat_strip(items):
 
 
 def mini_bars(values, color="#0a8a4e"):
+    """Tiny vertical bar sparkline scaled to the max input value."""
     max_v = max(values) or 1
     bars = "".join(
         f"<div class='bar' style='height:{max(6, int(v / max_v * 46))}px;"
@@ -1153,15 +1163,18 @@ def mini_bars(values, color="#0a8a4e"):
 
 
 def current_time_badge():
+    """Current timestamp formatted for "Updated …" pills."""
     stamp = datetime.now().strftime("%d %b %Y · %H:%M")
     return f"<span class='extra-pill'>Updated {stamp}</span>"
 
 
 def chart_card(fig, key=None):
+    """Render a plotly figure full-width inside the app."""
     st.plotly_chart(fig, width="stretch", key=key)
 
 
 def section_label(text, sub=None):
+    """Zambia-green section heading with an optional muted subtitle."""
     sub_html = f"<span class='sub'>· {_html.escape(sub)}</span>" if sub else ""
     st.markdown(
         f"<div class='section-label'>{text}{sub_html}</div>", unsafe_allow_html=True
@@ -1169,6 +1182,7 @@ def section_label(text, sub=None):
 
 
 def legend(items):
+    """Colour-key legend; items: list of (label, hex color)."""
     swatches = "".join(
         f"<span class='item'><span class='sw' style='background:{color}'></span>{label}</span>"
         for label, color in items
@@ -1177,6 +1191,7 @@ def legend(items):
 
 
 def pollutant_mini_grid(items):
+    """Compact pollutant cards showing value vs WHO 24-hour guideline."""
     cards = ""
     for it in items:
         label = it["label"]
@@ -1204,6 +1219,7 @@ def pollutant_mini_grid(items):
 
 
 def foot_note(*lines):
+    """Standardised footer block listing one or more note lines."""
     st.markdown(
         "<div class='foot-note'><div class='flag-accent'></div>"
         + "<br/>".join(lines)
@@ -1213,4 +1229,5 @@ def foot_note(*lines):
 
 
 def AQI_ANGLE(value):
+    """Map an AQI value to a 0-360° gauge angle (capped)."""
     return max(0, min(360, int(value / 300 * 360)))

@@ -43,6 +43,11 @@ TREND_COLUMNS = ["PM2.5", "PM10", "NO₂", "SO₂", "CO", "O₃"]
 
 
 def _get(path, params=None, timeout=8):
+    """GET the backend and return parsed JSON, or None on any failure.
+
+    ``path`` is appended to ``API_BASE_URL``; ``params`` are forwarded as
+    query-string parameters and ``timeout`` bounds the request in seconds.
+    """
     try:
         response = requests.get(f"{API_BASE_URL}{path}", params=params, timeout=timeout)
         return response.json() if response.ok else None
@@ -51,6 +56,11 @@ def _get(path, params=None, timeout=8):
 
 
 def _post(path, json=None, timeout=15):
+    """POST to the backend and return parsed JSON, or None on any failure.
+
+    ``path`` is appended to ``API_BASE_URL``; ``json`` becomes the request
+    body and ``timeout`` bounds the request in seconds.
+    """
     try:
         response = requests.post(f"{API_BASE_URL}{path}", json=json, timeout=timeout)
         return response.json() if response.ok else None
@@ -60,21 +70,25 @@ def _post(path, json=None, timeout=15):
 
 @st.cache_data(ttl=120)
 def fetch_api_status():
+    """Backend connectivity and model-registry status, or None (cached 120 s)."""
     return _get("/status")
 
 
 @st.cache_data(ttl=120)
 def fetch_evaluation_metrics():
+    """Evaluation metrics from the backend, or {} when offline (cached 120 s)."""
     return _get("/api/evaluation/metrics") or {}
 
 
 @st.cache_data(ttl=120)
 def fetch_comparison_data():
+    """Baseline-vs-optimized comparison payload, or {} offline (cached 120 s)."""
     return _get("/api/evaluation/comparison") or {}
 
 
 @st.cache_data(ttl=120)
 def fetch_shap_summary():
+    """Global SHAP summary from the backend (unwraps shap_summary), or None."""
     result = _get("/api/explainability/shap-summary", timeout=20)
     if result is None:
         return None
@@ -85,6 +99,7 @@ def fetch_shap_summary():
 
 @st.cache_data(ttl=15)
 def fetch_live_feed(source="auto", city=None):
+    """Live pollutant feed for a source/city, or None (cached 15 s)."""
     params = {"source": source}
     if city:
         params["city"] = city
@@ -93,11 +108,13 @@ def fetch_live_feed(source="auto", city=None):
 
 @st.cache_data(ttl=15)
 def fetch_predict_live(city):
+    """Live prediction payload for a city (prediction/confidence/readings), or None."""
     return _get("/api/predict/live", params={"city": city}, timeout=25)
 
 
 @st.cache_data(ttl=120)
 def fetch_raw_csv():
+    """Raw hourly telemetry from the backend as a DataFrame, or None (cached 120 s)."""
     try:
         response = requests.get(
             f"{API_BASE_URL}/api/data/download", params={"data_type": "raw"}, timeout=15
@@ -185,11 +202,13 @@ def fetch_historical_payload(city, start_date, end_date=""):
 
 
 def post_prediction(payload, model_type="optimized"):
+    """Score a single scenario payload; ``baseline`` routes to the baseline model."""
     path = f"/api/predict?model_type={model_type}" if model_type == "baseline" else "/api/predict"
     return _post(path, json=payload)
 
 
 def post_cross_validate(folds):
+    """Start an asynchronous k-fold cross-validation job on the backend."""
     return _post(f"/api/evaluation/cross-validate?folds={folds}", timeout=60)
 
 
@@ -216,7 +235,8 @@ def run_cross_validation(folds, timeout=240, poll_interval=2):
 
 
 def post_explain_prediction(payload):
-    return _post("/api/explainability/explain-prediction", json=payload, timeout=20)
+    """SHAP explanation for one scenario payload from the backend."""
+    return _post("/api/explainability/explain-prediction", json=payload, timeout=90)
 
 
 # ---------------------------------------------------------------------------
@@ -224,6 +244,7 @@ def post_explain_prediction(payload):
 # ---------------------------------------------------------------------------
 
 def get_model_names(status):
+    """Model-registry keys from a /status payload, as a list."""
     if not status:
         return []
     models = status.get("models") or {}
@@ -231,12 +252,14 @@ def get_model_names(status):
 
 
 def format_model_names(status):
+    """Model names joined for display, or "No model loaded"."""
     names = get_model_names(status)
     return ", ".join(names) if names else "No model loaded"
 
 
 @st.cache_data(ttl=120)
 def get_sample_trend_data():
+    """Static fallback 7-day trend DataFrame used when the backend is down."""
     return pd.DataFrame(
         {
             "timestamp": pd.date_range(end=pd.Timestamp.now(), periods=7, freq="D"),
@@ -530,6 +553,7 @@ def get_live_snapshot(city="Lusaka", source="auto"):
 
 
 def _aqi_color(level):
+    """Hex color for an AQI category, defaulting to Moderate amber."""
     try:
         from style_assets import AQI_COLORS
     except Exception:
@@ -561,6 +585,7 @@ def pollutant_status(value, who_24h, pm25_override=None):
 
 
 def _minutes_ago(timestamp):
+    """Whole minutes since an ISO timestamp, or None when unparseable."""
     from datetime import datetime
 
     if not timestamp:
@@ -607,6 +632,7 @@ def get_trend_frame(period, city="Lusaka"):
 
 
 def get_sample_metrics():
+    """Static fallback evaluation metrics used when the backend is offline."""
     return {
         "accuracy": 0.91,
         "precision": 0.88,
@@ -689,6 +715,7 @@ def build_pipeline_stages(status=None, raw=None, processed=None, imbalance=None,
     optimized_trained = str(models.get("optimized_svm", "")).lower() == "trained"
 
     def _millis(n):
+        """Format a numeric count with commas for display in pipeline stage chips."""
         try:
             return f"{int(n):,}"
         except (TypeError, ValueError):
@@ -787,6 +814,7 @@ def build_pipeline_stages(status=None, raw=None, processed=None, imbalance=None,
     has_eval = bool(metrics_payload and "accuracy" in metrics_payload)
     ev_state = "offline" if not online else ("completed" if has_eval else "pending")
     def _pct(key):
+        """Fetch a metric by key and format it as a percentage for pipeline KPI chips."""
         try:
             return f"{float(metrics_payload.get(key, 0)) * 100:.1f}%"
         except (TypeError, ValueError):

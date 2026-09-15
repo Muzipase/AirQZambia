@@ -28,6 +28,7 @@ export interface CityAirQuality {
   timestamp: string;
 }
 
+/** Shape of the pollutant/weather inputs the SVM model expects for a prediction. */
 export interface PredictionInput {
   pm25: number;
   pm10: number;
@@ -78,6 +79,7 @@ export interface ModelMetrics {
   [key: string]: any;
 }
 
+/** Side-by-side metrics comparing the baseline and Bayesian-optimized models. */
 export interface ModelComparison {
   accuracy_difference: number;
   precision_difference: number;
@@ -114,6 +116,7 @@ export interface ShapPerClassData {
   timestamp?: string;
 }
 
+/** Result of a k-fold cross-validation run, including per-fold metric arrays. */
 export interface CrossValidationResult {
   status: string;
   model_type: string;

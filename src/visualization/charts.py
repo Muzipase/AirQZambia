@@ -1,3 +1,9 @@
+"""Basic matplotlib chart helpers for quick exploratory visualisations.
+
+Provides lightweight bar and histogram plotting functions used by the pipeline
+reporting and EDA stages; figures are returned for further reuse.
+"""
+
 from typing import Optional, Sequence
 
 try:
@@ -7,6 +13,22 @@ except Exception:  # pragma: no cover - matplotlib optional
 
 
 def bar_chart(categories: Sequence, values: Sequence, title: Optional[str] = None, xlabel: Optional[str] = None, ylabel: Optional[str] = None, savepath: Optional[str] = None):
+	"""Render a bar chart of *values* against *categories* and return the figure.
+
+	Parameters
+	----------
+	categories, values : sequence
+		X-axis labels and corresponding bar heights.
+	title, xlabel, ylabel : str, optional
+		Figure title and axis labels.
+	savepath : str, optional
+		File path to save the figure to; skipped when ``None``.
+
+	Returns
+	-------
+	matplotlib.figure.Figure
+		The rendered figure (already closed for resource management).
+	"""
 	if plt is None:
 		raise RuntimeError("matplotlib is required for charts")
 	fig, ax = plt.subplots(figsize=(6, 4))
@@ -25,6 +47,24 @@ def bar_chart(categories: Sequence, values: Sequence, title: Optional[str] = Non
 
 
 def hist_chart(values, bins: int = 20, title: Optional[str] = None, savepath: Optional[str] = None):
+	"""Render a histogram of *values* and return the figure.
+
+	Parameters
+	----------
+	values : sequence
+		Data samples to bin.
+	bins : int
+		Number of histogram bins (default 20).
+	title : str, optional
+		Figure title.
+	savepath : str, optional
+		File path to save the figure to; skipped when ``None``.
+
+	Returns
+	-------
+	matplotlib.figure.Figure
+		The rendered figure (already closed for resource management).
+	"""
 	if plt is None:
 		raise RuntimeError("matplotlib is required for charts")
 	fig, ax = plt.subplots(figsize=(6, 4))

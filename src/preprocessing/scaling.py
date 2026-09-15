@@ -1,3 +1,10 @@
+"""Min-Max scaling for numeric features.
+
+Fits and applies a ``MinMaxScaler`` to all numeric columns, with helpers to
+persist the fitted scaler to disk and reload it at prediction time.  Scaling
+is critical for SVM kernels that are sensitive to feature magnitudes.
+"""
+
 import pandas as pd
 import joblib
 from pathlib import Path
@@ -46,6 +53,7 @@ def apply_scaler_to_dataframe(df: pd.DataFrame, scaler: MinMaxScaler, feature_co
 
 
 def transform_with_scaler(df: pd.DataFrame, scaler: MinMaxScaler) -> pd.DataFrame:
+    """Apply a fitted scaler to all numeric columns, returning a scaled DataFrame."""
     if df is None or df.empty:
         return df
 
@@ -55,11 +63,13 @@ def transform_with_scaler(df: pd.DataFrame, scaler: MinMaxScaler) -> pd.DataFram
 
 
 def save_scaler(scaler: MinMaxScaler, path: Path):
+    """Serialize a fitted scaler to *path* using joblib."""
     path.parent.mkdir(parents=True, exist_ok=True)
     joblib.dump(scaler, path)
 
 
 def load_scaler(path: Path) -> Optional[MinMaxScaler]:
+    """Load a previously saved scaler from *path*, or return ``None`` if missing."""
     if not path.exists():
         return None
     return joblib.load(path)

@@ -39,6 +39,16 @@ NON_FEATURE_COLUMNS = {"aqi_category", "timestamp", "location", "city", "country
 
 
 def run_pipeline(source: str = "auto", city: str = None, historical: bool = False):
+    """Run the full research pipeline end-to-end: fetch, preprocess, balance, tune and evaluate.
+
+    Args:
+        source: Data source to use (auto/openaq/openmeteo). Ignored when *historical* is set.
+        city: Optional single-city filter; None runs all configured cities.
+        historical: If True, fetch the 2022→present historical archive instead of live data.
+
+    Returns:
+        True on success, False if no data could be retrieved.
+    """
     ensure_dirs()
 
     # 1. Fetch data

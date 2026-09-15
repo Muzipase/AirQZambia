@@ -1,7 +1,15 @@
+"""Search-space definition for SVM hyperparameter optimization.
+
+Defines the categorical and continuous parameter ranges that Optuna samples
+from during Bayesian optimization (kernel type, regularisation C, gamma
+strategy, and polynomial degree).
+"""
+
 from optuna.trial import Trial
 
 
 def get_svm_search_space(trial: Trial) -> dict:
+    """Sample and return a dictionary of SVM hyperparameters from the Optuna trial."""
     kernel = trial.suggest_categorical("kernel", ["rbf", "poly"])
     params = {
         "kernel": kernel,

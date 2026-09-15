@@ -57,6 +57,20 @@ _lock = asyncio.Lock()
 _job_cond = asyncio.Condition(lock=_lock)
 
 def _create_job(name: str, **meta) -> str:
+    """Create a new background job entry and return its unique ID.
+
+    Parameters
+    ----------
+    name : str
+        Human-readable job name used to build the job ID prefix.
+    **meta
+        Arbitrary metadata stored alongside the job record.
+
+    Returns
+    -------
+    str
+        Unique job identifier (e.g. ``cross-validate-optimized-20250701120000-0``).
+    """
     job_id = f"{name}-{datetime.now().strftime('%Y%m%d%H%M%S')}-{len(_job_store)}"
     _job_store[job_id] = {
         "id": job_id,
@@ -71,6 +85,17 @@ def _create_job(name: str, **meta) -> str:
     return job_id
 
 async def _finish_job(job_id: str, result=None, error=None):
+    """Mark a background job as completed or failed and notify waiting listeners.
+
+    Parameters
+    ----------
+    job_id : str
+        The job identifier returned by :func:`_create_job`.
+    result : optional
+        Result payload stored on success; ``None`` on error.
+    error : optional
+        Error message string when the job fails; ``None`` on success.
+    """
     async with _job_cond:
         job = _job_store.get(job_id)
         if job is not None:
@@ -81,6 +106,21 @@ async def _finish_job(job_id: str, result=None, error=None):
         _job_cond.notify_all()
 
 async def _run_cv_job(job_id: str, model, X: pd.DataFrame, y: pd.Series, folds: int):
+    """Execute cross-validation in a background thread and store the result.
+
+    Parameters
+    ----------
+    job_id : str
+        Identifier of the background job to update on completion.
+    model : estimator
+        A scikit-learn-compatible model to cross-validate.
+    X : pd.DataFrame
+        Feature matrix.
+    y : pd.Series
+        Target labels.
+    folds : int
+        Number of cross-validation folds.
+    """
     try:
         cv_results = await asyncio.to_thread(cross_validate_model, model, X, y, folds)
         await _finish_job(job_id, result=cv_results)
@@ -107,6 +147,7 @@ class _Cache:
     # ---- synchronous loaders (called inside to_thread) ----
 
     def _load_model_sync(self, path: Path, key: str) -> Any:
+        """Load a pickled model from disk, reusing cache unless the file mtime changed."""
         mtime = path.stat().st_mtime
         cached = self._models.get(key)
         if cached is not None and self._models.get(f"{key}_mtime") == mtime:
@@ -117,6 +158,10 @@ class _Cache:
         return model
 
     def _load_scaler_sync(self) -> Any:
+        """Load the persisted scaler, reusing cache unless the file mtime changed.
+
+        Returns ``None`` if no scaler artifact exists.
+        """
         if not SCALER_PATH.exists():
             return None
         mtime = SCALER_PATH.stat().st_mtime
@@ -127,6 +172,10 @@ class _Cache:
         return self._scaler
 
     def _load_processed_df_sync(self) -> Optional[pd.DataFrame]:
+        """Load the processed DataFrame, reusing cache unless the file mtime changed.
+
+        Returns ``None`` if the processed data file is missing.
+        """
         if not PROCESSED_DATA_PATH.exists():
             return None
         mtime = PROCESSED_DATA_PATH.stat().st_mtime
@@ -137,6 +186,10 @@ class _Cache:
         return self._processed_df
 
     def _load_raw_df_sync(self) -> Optional[pd.DataFrame]:
+        """Load the raw DataFrame, reusing cache unless the file mtime changed.
+
+        Returns ``None`` if the raw data file is missing.
+        """
         if not RAW_DATA_PATH.exists():
             return None
         mtime = RAW_DATA_PATH.stat().st_mtime
@@ -147,6 +200,11 @@ class _Cache:
         return self._raw_df
 
     def _load_shap_explainer_sync(self) -> Any:
+        """Build and cache a SHAP explainer from the optimized model and processed data.
+
+        Reuses the cached explainer while the model file mtime is unchanged, and
+        returns ``None`` when the model or processed data is unavailable.
+        """
         if not OPTIMIZED_MODEL_PATH.exists():
             return None
         model_mtime = OPTIMIZED_MODEL_PATH.stat().st_mtime
@@ -164,23 +222,29 @@ class _Cache:
     # ---- async wrappers ----
 
     async def get_model(self, path: Path, key: str) -> Any:
+        """Load a model from disk asynchronously via the synchronous loader."""
         return await asyncio.to_thread(self._load_model_sync, path, key)
 
     async def get_scaler(self) -> Any:
+        """Load the persisted scaler asynchronously via the synchronous loader."""
         return await asyncio.to_thread(self._load_scaler_sync)
 
     async def get_processed_df(self) -> Optional[pd.DataFrame]:
+        """Load the processed DataFrame asynchronously via the synchronous loader."""
         return await asyncio.to_thread(self._load_processed_df_sync)
 
     async def get_raw_df(self) -> Optional[pd.DataFrame]:
+        """Load the raw DataFrame asynchronously via the synchronous loader."""
         return await asyncio.to_thread(self._load_raw_df_sync)
 
     async def get_shap_explainer(self) -> Any:
+        """Build and load the SHAP explainer asynchronously via the synchronous loader."""
         return await asyncio.to_thread(self._load_shap_explainer_sync)
 
     # ---- invalidation ----
 
     def invalidate_all(self):
+        """Drop all cached models, scaler, DataFrames, and the SHAP explainer."""
         self._models.clear()
         self._scaler = None
         self._scaler_mtime = 0.0
@@ -192,17 +256,20 @@ class _Cache:
         self._shap_model_mtime = 0.0
 
     def invalidate_models(self):
+        """Drop cached models and the SHAP explainer so they reload on next request."""
         self._models.clear()
         self._shap_explainer = None
         self._shap_model_mtime = 0.0
 
     def invalidate_data(self):
+        """Drop cached raw and processed DataFrames so they reload on next request."""
         self._processed_df = None
         self._processed_mtime = 0.0
         self._raw_df = None
         self._raw_mtime = 0.0
 
     def invalidate_shap(self):
+        """Drop the cached SHAP explainer so it is rebuilt on next request."""
         self._shap_explainer = None
         self._shap_model_mtime = 0.0
 
@@ -245,6 +312,10 @@ app.add_middleware(
 ADMIN_API_TOKEN = os.environ.get("ADMIN_API_TOKEN", "changeme-admin-token")
 
 def require_admin_token(x_admin_token: str = Header(None)):
+    """FastAPI dependency enforcing admin authentication via the ``X-Admin-Token`` header.
+
+    Raises HTTP 401 when the token is missing or does not match ``ADMIN_API_TOKEN``.
+    """
     if x_admin_token is None or x_admin_token != ADMIN_API_TOKEN:
         raise HTTPException(status_code=401, detail="Unauthorized: invalid admin token")
     return True
@@ -471,6 +542,7 @@ async def public_data_summary():
 
 @app.get("/public/health")
 async def public_health():
+    """Public health/liveness check for CDNs, load balancers, and public dashboards."""
     return JSONResponse(status_code=200, content={
         "status": "ok",
         "version": "1.0.0",
@@ -1687,7 +1759,8 @@ async def explain_prediction(input_data: PredictionInput):
             'o3': input_data.o3,
             'temperature': input_data.temperature or 25.0,
             'humidity': input_data.humidity or 60.0,
-            'wind_speed': input_data.wind_speed or 5.0
+            'wind_speed': input_data.wind_speed or 5.0,
+            'rainfall': input_data.rainfall or 0.0,
         }
         
         input_df = pd.DataFrame([features])

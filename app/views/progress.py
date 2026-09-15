@@ -52,6 +52,7 @@ STATE_COLORS = {
 
 
 def _pct(value, default="—"):
+    """Format a 0-1 fraction as a percentage string, or ``default`` when bad."""
     try:
         if value is None:
             return default
@@ -61,6 +62,7 @@ def _pct(value, default="—"):
 
 
 def _uptime(seconds):
+    """Human-readable uptime (``3d 4h``, ``5h 12m``, ``42m``) from seconds."""
     try:
         seconds = float(seconds or 0)
         days, rem = divmod(int(seconds), 86400)
@@ -76,6 +78,7 @@ def _uptime(seconds):
 
 
 def _overview_html(state, completed, total, pct):
+    """HTML for the pipeline-overview header card for a given aggregate state."""
     color = STATE_COLORS[state]
     label = STATE_LABEL[state]
     title = {
@@ -287,6 +290,7 @@ def _stage_detail(stage):
 
 
 def _clear_caches():
+    """Evict every data fetch cached on this page so refresh re-probes the API."""
     for fn in (
         fetch_api_status, fetch_evaluation_metrics, fetch_comparison_data,
         fetch_shap_summary, fetch_raw_csv, fetch_processed_csv,
@@ -299,6 +303,7 @@ def _clear_caches():
 
 
 def render():
+    """Main entry point: render the pipeline-progress page."""
     stats = fetch_api_status()
     model_names = get_model_names(stats)
     online = bool(stats)
@@ -382,6 +387,7 @@ def render():
     section_label("Pipeline stages", "six research stages in execution order")
 
     def _stage_rail():
+        """Render the vertical pipeline-stage rail with status markers, KPIs and state chips."""
         rows = ["<div class='pipe-rail'>"]
         for i, s in enumerate(stages):
             is_last = i == len(stages) - 1

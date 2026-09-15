@@ -1,3 +1,10 @@
+"""Missing-value imputation for air-quality sensor data.
+
+Applies median imputation to numeric pollutant and meteorological columns,
+forward-fills AQI categories, and zero-fills columns that contain no observed
+values at all.  Runs after ``clean_data`` and before feature engineering.
+"""
+
 import pandas as pd
 from sklearn.impute import SimpleImputer
 

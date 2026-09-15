@@ -1,3 +1,10 @@
+"""Schema and quality validation for ingested air-quality data.
+
+Defines the canonical pollutant/weather column contract shared by Open-Meteo
+and OpenAQ fetchers and validates incoming DataFrames against it before
+downstream preprocessing.
+"""
+
 import pandas as pd
 from typing import Dict, List
 

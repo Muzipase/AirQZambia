@@ -1,6 +1,7 @@
 import useSWR from 'swr';
 import type { CityAirQuality, ConfusionMatrixData, CrossValidationResult, EvaluationMetrics, ForecastData, ModelComparison, PredictionInput, PredictionResult } from '@/types';
 
+/** Returns the FastAPI backend base URL, preferring the env var, then window origin, then localhost. */
 function getApiBaseUrl(): string {
   if (process.env.NEXT_PUBLIC_API_BASE_URL) {
     return process.env.NEXT_PUBLIC_API_BASE_URL;
@@ -11,6 +12,7 @@ function getApiBaseUrl(): string {
   return 'http://localhost:8000';
 }
 
+/** Generic typed fetch wrapper that prepends the API base URL and sets JSON headers. */
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`${getApiBaseUrl()}${path}`, {
     ...init,
@@ -30,6 +32,7 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
 const fetcher = (url: string) => fetch(url).then((r) => r.json());
 
 // ==================== Status ====================
+/** Checks FastAPI /status endpoint with retries. Returns the status payload or null on failure. */
 export async function fetchApiStatus(retries = 2): Promise<any> {
   for (let attempt = 0; attempt <= retries; attempt++) {
     try {
@@ -56,6 +59,7 @@ const CITY_COORDS: Record<string, { latitude: number; longitude: number }> = {
   Kitwe: { latitude: -10.8833, longitude: 27.7833 },
 };
 
+/** Fetches current weather (temp, humidity, wind) from Open-Meteo for the given Zambian city. */
 export async function fetchLiveWeather(cityName: string): Promise<{ temperature: number; humidity: number; wind_speed: number } | null> {
   const coords = CITY_COORDS[cityName];
   if (!coords) return null;
@@ -76,6 +80,7 @@ export async function fetchLiveWeather(cityName: string): Promise<{ temperature:
   }
 }
 
+/** Fetches hourly weather forecasts from Open-Meteo keyed by ISO timestamp string. */
 export async function fetchLiveWeatherHourly(cityName: string, forecastDays: number = 3): Promise<Record<string, { temperature: number; humidity: number; wind_speed: number }> | null> {
   const coords = CITY_COORDS[cityName];
   if (!coords) return null;
@@ -101,6 +106,7 @@ export async function fetchLiveWeatherHourly(cityName: string, forecastDays: num
 }
 
 // ==================== City Air Quality ====================
+/** Fetches the current air quality reading (pollutants, health advice, category) for a city. */
 export async function fetchCityAirQuality(cityName: string): Promise<CityAirQuality | null> {
   try {
     const response = await fetch(`${getApiBaseUrl()}/public/city/${encodeURIComponent(cityName)}`);
@@ -113,6 +119,7 @@ export async function fetchCityAirQuality(cityName: string): Promise<CityAirQual
 }
 
 // ==================== City Forecast ====================
+/** Fetches hourly and daily AQI forecasts for a city. */
 export async function fetchCityForecast(cityName: string, forecastDays: number = 3): Promise<ForecastData | null> {
   try {
     const response = await fetch(`${getApiBaseUrl()}/public/city/${encodeURIComponent(cityName)}/forecast?forecast_days=${forecastDays}`);
@@ -125,6 +132,7 @@ export async function fetchCityForecast(cityName: string, forecastDays: number =
 }
 
 // ==================== Predictions ====================
+/** Submits pollutant/weather readings to the SVM model and returns a classification result. */
 export async function makePrediction(
   data: PredictionInput,
   modelType: 'baseline' | 'optimized' = 'optimized'
@@ -142,6 +150,7 @@ export async function makePrediction(
 }
 
 // ==================== Evaluation ====================
+/** Fetches overall model evaluation metrics (accuracy, precision, recall, f1). */
 export async function fetchEvaluationMetrics(): Promise<EvaluationMetrics> {
   try {
     return await request<EvaluationMetrics>('/api/evaluation/metrics');
@@ -151,6 +160,7 @@ export async function fetchEvaluationMetrics(): Promise<EvaluationMetrics> {
   }
 }
 
+/** Fetches a side-by-side comparison of baseline vs. optimized model metrics. */
 export async function fetchModelComparison(): Promise<ModelComparison | null> {
   try {
     const data = await request<{ status: string; comparison: ModelComparison }>('/api/evaluation/comparison');
@@ -161,6 +171,7 @@ export async function fetchModelComparison(): Promise<ModelComparison | null> {
   }
 }
 
+/** Fetches confusion matrices for both the baseline and optimized models. */
 export async function fetchConfusionMatrix(): Promise<ConfusionMatrixData | null> {
   try {
     return await request<ConfusionMatrixData>('/api/evaluation/confusion-matrix');
@@ -170,6 +181,7 @@ export async function fetchConfusionMatrix(): Promise<ConfusionMatrixData | null
   }
 }
 
+/** Triggers server-side k-fold cross-validation and polls until completion (up to 10 min). */
 export async function runCrossValidation(
   folds: number = 5,
   modelType: string = 'optimized',
@@ -219,6 +231,7 @@ export async function runCrossValidation(
   throw new Error('Cross-validation timed out after 10 minutes.');
 }
 
+/** SWR hook that keeps the model comparison data fresh without revalidating on focus. */
 export function useModelComparison() {
   return useSWR<ModelComparison | null>(
     `${getApiBaseUrl()}/api/evaluation/comparison`,
@@ -231,6 +244,7 @@ export function useModelComparison() {
 }
 
 // ==================== SHAP Explainability ====================
+/** Fetches global SHAP feature importance summary (falls back to a friendly message). */
 export async function fetchShapSummary() {
   try {
     return await request('/api/explainability/shap-summary');
@@ -240,6 +254,7 @@ export async function fetchShapSummary() {
   }
 }
 
+/** Fetches per-class SHAP feature importances. */
 export async function fetchShapPerClass() {
   try {
     return await request('/api/explainability/shap-per-class');
@@ -249,6 +264,7 @@ export async function fetchShapPerClass() {
   }
 }
 
+/** Fetches a SHAP force plot for a single prediction instance by index. */
 export async function fetchShapForce(instanceIndex: number) {
   try {
     return await request(`/api/explainability/force/${instanceIndex}`);
@@ -259,6 +275,7 @@ export async function fetchShapForce(instanceIndex: number) {
 }
 
 // ==================== Live Prediction ====================
+/** Gets the model's live prediction for a city using its current Open-Meteo readings. */
 export async function fetchLivePrediction(
   city: string,
   modelType: 'baseline' | 'optimized' = 'optimized'
@@ -273,6 +290,7 @@ export async function fetchLivePrediction(
 }
 
 // ==================== Batch Predictions ====================
+/** Submits a CSV string for batch prediction and returns the model's results. */
 export async function batchPredict(
   csvData: string,
   modelType: 'baseline' | 'optimized' = 'optimized'
@@ -299,6 +317,7 @@ export async function batchPredict(
 }
 
 // ==================== System Info ====================
+/** Fetches backend system metrics (CPU, memory, uptime). */
 export async function fetchSystemMetrics() {
   try {
     return await request('/api/system/metrics');
@@ -335,6 +354,7 @@ export interface HistoricalData {
   stats: Record<string, { min: number; max: number; mean: number; trend: string; count: number }>;
 }
 
+/** Fetches per-day historical pollutant measurements for a city over a date range. */
 export async function fetchCityHistorical(
   cityName: string,
   startDate: string,
@@ -358,6 +378,7 @@ export async function fetchCityHistorical(
 
 // ==================== SWR Hooks ====================
 
+/** SWR hook polling current air quality for a city every 60s. */
 export function useCityAirQuality(cityName: string) {
   return useSWR<CityAirQuality | null>(
     `${getApiBaseUrl()}/public/city/${encodeURIComponent(cityName)}`,
@@ -366,6 +387,7 @@ export function useCityAirQuality(cityName: string) {
   );
 }
 
+/** SWR hook polling the AQI forecast for a city every 2 minutes. */
 export function useCityForecast(cityName: string, forecastDays: number = 3) {
   return useSWR<ForecastData | null>(
     `${getApiBaseUrl()}/public/city/${encodeURIComponent(cityName)}/forecast?forecast_days=${forecastDays}`,
@@ -374,6 +396,7 @@ export function useCityForecast(cityName: string, forecastDays: number = 3) {
   );
 }
 
+/** SWR hook for model evaluation metrics. */
 export function useEvaluationMetrics() {
   return useSWR<EvaluationMetrics>(
     `${getApiBaseUrl()}/api/evaluation/metrics`,
@@ -382,6 +405,7 @@ export function useEvaluationMetrics() {
   );
 }
 
+/** SWR hook for the SHAP explainability summary. */
 export function useShapSummary() {
   return useSWR(
     `${getApiBaseUrl()}/api/explainability/shap-summary`,
@@ -390,6 +414,7 @@ export function useShapSummary() {
   );
 }
 
+/** SWR hook polling backend system metrics every 10s. */
 export function useSystemMetrics() {
   return useSWR(
     `${getApiBaseUrl()}/api/system/metrics`,
@@ -398,6 +423,7 @@ export function useSystemMetrics() {
   );
 }
 
+/** SWR hook for historical pollutant data over a date range. */
 export function useCityHistorical(
   cityName: string,
   startDate: string,

@@ -6,6 +6,7 @@
  * command center so all surfaces report the same index.
  */
 
+/** Converts a PM2.5 concentration (µg/m³) into the US-EPA AQI scale (0–500). */
 export function pm25ToAqi(pm25: number): number {
   if (pm25 <= 12.0) return Math.round((pm25 / 12.0) * 50);
   if (pm25 <= 35.4) return Math.round(50 + ((pm25 - 12.0) / (35.4 - 12.0)) * 50);

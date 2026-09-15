@@ -74,6 +74,7 @@ def _conditions_rows(payload):
 
 
 def _trend_chart(payload, selected):
+    """Build a Plotly multi-line figure of daily pollutant averages for the selected columns."""
     import plotly.express as px
     import plotly.graph_objects as go
 
@@ -106,6 +107,7 @@ def _trend_chart(payload, selected):
 
 
 def _stats_table(payload):
+    """Return a per-pollutant summary DataFrame with days covered, min/max/mean and trend."""
     rows = []
     for key, meta in POLLUTANTS.items():
         info = payload["stats"].get(key) or {}
@@ -123,6 +125,7 @@ def _stats_table(payload):
 
 
 def render():
+    """Render the Historical Data page: date range explorer, archive conditions and CSV export."""
     stats = fetch_api_status()
     model_names = get_model_names(stats)
 

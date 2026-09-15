@@ -12,10 +12,12 @@ const CityContext = createContext<CityContextType>({
   setSelectedCity: () => {},
 });
 
+/** Returns the current city selection and a setter to change it. */
 export function useCity() {
   return useContext(CityContext);
 }
 
+/** Wraps the app so all pages share a single selected-city state. */
 export function CityProvider({ children }: { children: React.ReactNode }) {
   const [selectedCity, setSelectedCity] = useState('Lusaka');
   const value = useMemo(() => ({ selectedCity, setSelectedCity }), [selectedCity]);

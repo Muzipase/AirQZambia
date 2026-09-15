@@ -93,6 +93,7 @@ function WeatherMini({ temp, humidity, wind }: { temp: number; humidity: number;
   );
 }
 
+/** Dashboard: current AQI for the selected city, hourly/daily forecasts, pollutant detail vs. WHO guidelines, and health advice. */
 export default function Dashboard() {
   const { selectedCity } = useCity();
   const [data, setData] = useState<CityAirQuality | null>(null);

@@ -19,6 +19,7 @@ interface LiveReadings {
   wind_speed: number;
 }
 
+/** Predictions page: run the SVM classifier on live city readings or manual inputs and view confidence/probability. */
 export default function PredictionsPage() {
   const [result, setResult] = useState<PredictionResult | null>(null);
   const [liveReadings, setLiveReadings] = useState<LiveReadings | null>(null);

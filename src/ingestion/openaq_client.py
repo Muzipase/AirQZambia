@@ -1,3 +1,10 @@
+"""OpenAQ REST API client for fetching pollutant measurements.
+
+Queries official monitoring-station data (with per-parameter parallel requests),
+normalises results into a wide-format DataFrame, and falls back to realistic
+built-in Zambian sample data when the upstream API is unreachable.
+"""
+
 import logging
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timedelta, timezone
@@ -15,6 +22,7 @@ logger = logging.getLogger(__name__)
 
 
 def _build_common_payload(limit: int, days: int, country: Optional[str] = None) -> Dict[str, object]:
+    """Build the shared OpenAQ query payload: limit, descending sort, rolling date window and country filter."""
     payload = {
         "limit": limit,
         "sort": "desc",
@@ -70,6 +78,7 @@ def fetch_openaq_measurements(limit: int = DEFAULT_LIMIT, country: Optional[str]
 
     try:
         def _fetch_parameter(parameter: str) -> List[Dict]:
+            """Fetch and parse measurement records for a single pollutant parameter from OpenAQ."""
             params = {**payload, "parameter": parameter}
             resp = requests.get(OPENAQ_BASE_URL, params=params, timeout=15)
             resp.raise_for_status()
