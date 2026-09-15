@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { fetchCityAirQuality, fetchCityForecast, fetchLiveWeather, fetchLiveWeatherHourly } from '@/lib/api';
-import { pm25ToAqi } from '@/lib/aqi';
+import { computeAqi, pm25ToAqi, aqiCategory } from '@/lib/aqi';
 import { useCity } from '@/lib/city-context';
 import type { CityAirQuality, ForecastData, HourlyForecast, DailyForecast } from '@/types';
 
@@ -166,14 +166,18 @@ export default function Dashboard() {
     }
     return d;
   });
-  const aqiValue = hourlyNow.length > 0 ? hourlyNow[0].aqi : (data ? pm25ToAqi(data.readings.pm25) : 0);
-  const categoryColor = hourlyNow.length > 0 ? getCategoryColor(hourlyNow[0].category) : (data ? getCategoryColor(data.category) : '#eab308');
+  const aqiResult = data ? computeAqi(data.readings) : null;
+  const aqiValue = hourlyNow.length > 0 ? hourlyNow[0].aqi : (aqiResult?.aqi ?? 0);
+  const categoryColor = hourlyNow.length > 0 ? getCategoryColor(hourlyNow[0].category) : (data ? getCategoryColor(aqiResult?.aqi != null ? aqiCategory(aqiResult.aqi) : data.category) : '#eab308');
   const cityInfo = CITY_INFO[selectedCity] || { country: 'Zambia', province: '' };
   const currentPm25 = hourlyNow.length > 0 ? hourlyNow[0].pm25 : (data?.readings.pm25 ?? 0);
   const currentTemp = hourlyNow.length > 0 ? hourlyNow[0].temperature : (liveWeather?.temperature ?? data?.readings.temperature ?? 0);
   const currentHumidity = hourlyNow.length > 0 ? hourlyNow[0].humidity : (liveWeather?.humidity ?? data?.readings.humidity ?? 0);
   const currentWind = hourlyNow.length > 0 ? hourlyNow[0].wind_speed : (liveWeather?.wind_speed ?? data?.readings.wind_speed ?? 0);
-  const currentCategory = hourlyNow.length > 0 ? hourlyNow[0].category : (data?.category ?? 'Moderate');
+  const currentCategory = hourlyNow.length > 0 ? hourlyNow[0].category : (data ? (aqiResult?.aqi != null ? aqiCategory(aqiResult.aqi) : data.category) : 'Moderate');
+  const dominantKey = aqiResult?.dominant ?? 'pm25';
+  const dominantInfo = pollutantLabels[dominantKey];
+  const dominantValue = aqiResult?.dominant && data ? data.readings[dominantKey] : currentPm25;
 
   return (
     <div className="dash-container">
@@ -206,7 +210,7 @@ export default function Dashboard() {
             <div className="aqi-hero-right">
               <div className="aqi-hero-pollutant">
                 <span className="aqi-hero-pollutant-label">Main pollutant</span>
-                <span className="aqi-hero-pollutant-value">PM2.5 — {currentPm25} µg/m³</span>
+                <span className="aqi-hero-pollutant-value">{dominantInfo?.label ?? 'PM2.5'} — {dominantKey === 'co' ? (dominantValue / 1000).toFixed(3) : dominantValue} {dominantInfo?.unit ?? 'µg/m³'}</span>
               </div>
               <WeatherMini temp={currentTemp} humidity={currentHumidity} wind={currentWind} />
               <div className="aqi-hero-advice" style={{ color: categoryColor }}>{data.health?.message ?? 'Air quality data loading...'}</div>
@@ -278,7 +282,7 @@ export default function Dashboard() {
                     className="pollutant-bar-fill"
                     style={{
                       width: `${Math.min((currentPm25 / 150) * 100, 100)}%`,
-                      background: getCategoryColor(pm25ToAqi(currentPm25) <= 50 ? 'Good' : pm25ToAqi(currentPm25) <= 100 ? 'Moderate' : 'Unhealthy'),
+                      background: getCategoryColor(aqiCategory(aqiResult?.subIndices.pm25 ?? pm25ToAqi(currentPm25) ?? 0)),
                     }}
                   />
                 </div>

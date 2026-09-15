@@ -4,7 +4,7 @@ import React, { useEffect, useState, useMemo, useCallback } from 'react';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { fetchCityAirQuality, fetchLiveWeather } from '@/lib/api';
-import { pm25ToAqi } from '@/lib/aqi';
+import { computeAqi, aqiCategory } from '@/lib/aqi';
 
 const MapView = dynamic(() => import('@/components/MapView'), { ssr: false });
 
@@ -22,14 +22,6 @@ function aqiColor(aqi: number): string {
   return '#7f1d1d';
 }
 
-function aqiCategory(aqi: number): string {
-  if (aqi <= 50) return 'Good';
-  if (aqi <= 100) return 'Moderate';
-  if (aqi <= 150) return 'Unhealthy for Sensitive';
-  if (aqi <= 200) return 'Unhealthy';
-  return 'Hazardous';
-}
-
 /** Map page: live AQI markers per city on an interactive map with a color legend and quick city cards. */
 export default function PollutionMapPage() {
   const [cityData, setCityData] = useState<Record<string, { aqi: number; category: string; pm25: number; temperature: number; humidity: number; wind_speed: number }>>({});
@@ -43,9 +35,10 @@ export default function PollutionMapPage() {
           const data = await fetchCityAirQuality(city.name);
           if (data && data.status === 'ok') {
             const pm25 = data.readings?.pm25 ?? 0;
+            const aqi = computeAqi(data.readings).aqi ?? 0;
             results[city.name] = {
-              aqi: pm25ToAqi(pm25),
-              category: data.category || 'Moderate',
+              aqi,
+              category: aqi > 0 ? aqiCategory(aqi) : (data.category || 'Moderate'),
               pm25,
               temperature: data.readings?.temperature ?? 0,
               humidity: data.readings?.humidity ?? 0,
@@ -103,8 +96,8 @@ export default function PollutionMapPage() {
         <div className="map-legend-items">
           <div className="map-legend-item"><span className="map-legend-dot" style={{ background: '#22c55e' }} /><span>Good (0-50)</span></div>
           <div className="map-legend-item"><span className="map-legend-dot" style={{ background: '#eab308' }} /><span>Moderate (51-100)</span></div>
-          <div className="map-legend-item"><span className="map-legend-dot" style={{ background: '#f97316' }} /><span>Unhealthy for Sensitive (101-150)</span></div>
-          <div className="map-legend-item"><span className="map-legend-dot" style={{ background: '#ef4444' }} /><span>Unhealthy (151-200)</span></div>
+          <div className="map-legend-item"><span className="map-legend-dot" style={{ background: '#f97316' }} /><span>Unhealthy (101-150)</span></div>
+          <div className="map-legend-item"><span className="map-legend-dot" style={{ background: '#ef4444' }} /><span>Very Unhealthy (151-200)</span></div>
           <div className="map-legend-item"><span className="map-legend-dot" style={{ background: '#7f1d1d' }} /><span>Hazardous (201+)</span></div>
         </div>
       </div>

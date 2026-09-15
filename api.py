@@ -617,9 +617,9 @@ async def public_city_air_quality(city_name: str):
         humidity = float(humid_values[current_idx] or 0) if current_idx < len(humid_values) else 0
         wind_speed = float(wind_values[current_idx] or 0) if current_idx < len(wind_values) else 0
 
-        # Classify air quality
-        from src.preprocessing.feature_engineering import categorize_aqi
-        category = categorize_aqi(pm25, pm10)
+        # Classify air quality using the multi-pollutant EPA AQI
+        aqi, _, _ = _compute_aqi({"pm25": pm25, "pm10": pm10, "no2": no2, "so2": so2, "co": co, "o3": o3})
+        category = _aqi_category(aqi) if aqi is not None else "Moderate"
 
         # Build health advice per category
         advice = {
@@ -679,20 +679,117 @@ async def public_city_air_quality(city_name: str):
         })
 
 
-def _pm25_to_aqi(pm25: float) -> int:
-    """Convert PM2.5 concentration to US AQI value using EPA breakpoints."""
-    breakpoints = [
-        (0.0,   12.0,   0,   50),
-        (12.0,  35.4,  50,  100),
-        (35.4,  55.4, 100,  150),
-        (55.4, 150.4, 150,  200),
-        (150.4, 250.4, 200, 300),
-        (250.4, 500.4, 300, 500),
-    ]
+def _aqi_from_breakpoints(value, breakpoints):
+    """Piecewise-linear US-EPA AQI sub-index for a concentration.
+
+    ``breakpoints`` is a list of (c_low, c_high, i_low, i_high). Returns None
+    for missing / non-finite values and 500 when a value exceeds every band.
+    Mirrors ``app/state.py`` `_aqi_from_breakpoints`.
+    """
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return None
+    if value != value or value in (float("inf"), float("-inf")):  # not finite
+        return None
     for c_low, c_high, i_low, i_high in breakpoints:
-        if pm25 <= c_high:
-            return round(i_low + ((pm25 - c_low) / (c_high - c_low)) * (i_high - i_low))
+        if value <= c_high:
+            return int(round(i_low + ((value - c_low) / (c_high - c_low)) * (i_high - i_low)))
     return 500
+
+
+# US-EPA 2016 AQI breakpoint tables. PM2.5 / PM10 / NO2 / SO2 / O3 are graded
+# in µg/m³ (Open-Meteo's unit); CO is graded in mg/m³ so µg/m³ is /1000 first.
+_PM25_AQI_BREAKPOINTS = [
+    (0.0, 12.0, 0, 50), (12.0, 35.4, 50, 100), (35.4, 55.4, 100, 150),
+    (55.4, 150.4, 150, 200), (150.4, 250.4, 200, 300), (250.4, 500.4, 300, 500),
+]
+_PM10_AQI_BREAKPOINTS = [
+    (0.0, 54.0, 0, 50), (54.0, 154.0, 50, 100), (154.0, 254.0, 100, 150),
+    (254.0, 354.0, 150, 200), (354.0, 424.0, 200, 300), (424.0, 504.0, 300, 400),
+    (504.0, 604.0, 400, 500),
+]
+_NO2_AQI_BREAKPOINTS = [
+    (0.0, 53.0, 0, 50), (53.0, 100.0, 50, 100), (100.0, 360.0, 100, 150),
+    (360.0, 649.0, 150, 200), (649.0, 1249.0, 200, 300), (1249.0, 1649.0, 300, 400),
+    (1649.0, 2049.0, 400, 500),
+]
+_SO2_AQI_BREAKPOINTS = [
+    (0.0, 35.0, 0, 50), (35.0, 75.0, 50, 100), (75.0, 185.0, 100, 150),
+    (185.0, 304.0, 150, 200), (304.0, 604.0, 200, 300), (604.0, 804.0, 300, 400),
+    (804.0, 1004.0, 400, 500),
+]
+_CO_AQI_BREAKPOINTS = [
+    (0.0, 4.4, 0, 50), (4.4, 9.4, 50, 100), (9.4, 12.4, 100, 150),
+    (12.4, 15.4, 150, 200), (15.4, 30.4, 200, 300), (30.4, 40.4, 300, 400),
+    (40.4, 50.4, 400, 500),
+]
+_O3_AQI_BREAKPOINTS = [
+    (0.0, 108.0, 0, 50), (108.0, 140.0, 50, 100), (140.0, 170.0, 100, 150),
+    (170.0, 210.0, 150, 200), (210.0, 400.0, 200, 300), (400.0, 600.0, 300, 400),
+    (600.0, 800.0, 400, 500),
+]
+
+
+def _pm25_to_aqi(pm25: float):
+    """Convert PM2.5 concentration to US AQI value using EPA breakpoints."""
+    return _aqi_from_breakpoints(pm25, _PM25_AQI_BREAKPOINTS)
+
+
+def _pm10_to_aqi(pm10: float):
+    """Convert PM10 concentration (µg/m³) to US AQI value."""
+    return _aqi_from_breakpoints(pm10, _PM10_AQI_BREAKPOINTS)
+
+
+def _no2_to_aqi(no2: float):
+    """Convert NO2 concentration (µg/m³) to US AQI value."""
+    return _aqi_from_breakpoints(no2, _NO2_AQI_BREAKPOINTS)
+
+
+def _so2_to_aqi(so2: float):
+    """Convert SO2 concentration (µg/m³) to US AQI value."""
+    return _aqi_from_breakpoints(so2, _SO2_AQI_BREAKPOINTS)
+
+
+def _co_to_aqi(co: float):
+    """Convert CO concentration (µg/m³ -> mg/m³) to US AQI value."""
+    return _aqi_from_breakpoints(co / 1000.0, _CO_AQI_BREAKPOINTS)
+
+
+def _o3_to_aqi(o3: float):
+    """Convert O3 concentration (µg/m³) to US AQI value."""
+    return _aqi_from_breakpoints(o3, _O3_AQI_BREAKPOINTS)
+
+
+def _compute_aqi(readings):
+    """US-EPA multi-pollutant AQI from per-pollutant concentrations.
+
+    ``readings`` maps pollutant key -> concentration (µg/m³). Returns
+    ``(aqi, dominant key, sub-index dict)``; missing / non-finite values are
+    skipped and empty input yields ``(None, None, {})``. Mirrors
+    ``app/state.py`` `compute_aqi`.
+    """
+    functions = {
+        "pm25": _pm25_to_aqi,
+        "pm10": _pm10_to_aqi,
+        "no2": _no2_to_aqi,
+        "so2": _so2_to_aqi,
+        "co": _co_to_aqi,
+        "o3": _o3_to_aqi,
+    }
+    sub_indices = {}
+    for key, fn in functions.items():
+        value = readings.get(key)
+        if value is None:
+            continue
+        sub = fn(value)
+        if sub is not None:
+            sub_indices[key] = sub
+    if not sub_indices:
+        return None, None, {}
+    aqi = max(sub_indices.values())
+    dominant = next(key for key in functions if key in sub_indices and sub_indices[key] == aqi)
+    return aqi, dominant, sub_indices
 
 
 def _aqi_category(aqi: int) -> str:
@@ -741,7 +838,14 @@ async def public_city_forecast(city_name: str, forecast_days: int = 3):
 
         aq_hourly = aq_data["hourly"]
         times = aq_hourly.get("time", [])
-        pm25_values = aq_hourly.get("pm2_5", [])
+        pollutant_arrays = {
+            "pm25": aq_hourly.get("pm2_5", []),
+            "pm10": aq_hourly.get("pm10", []),
+            "no2": aq_hourly.get("nitrogen_dioxide", []),
+            "so2": aq_hourly.get("sulphur_dioxide", []),
+            "co": aq_hourly.get("carbon_monoxide", []),
+            "o3": aq_hourly.get("ozone", []),
+        }
 
         wx_hourly = wx_data.get("hourly", {}) if wx_data else {}
         temp_values = wx_hourly.get("temperature_2m", [])
@@ -762,53 +866,42 @@ async def public_city_forecast(city_name: str, forecast_days: int = 3):
         daily_map = {}
 
         for i, ts in enumerate(times):
-            # Skip hours that are before the current hour
-            if ts < current_hour_str:
-                # Still accumulate daily stats for today's past hours
-                pm25_d = float(pm25_values[i]) if i < len(pm25_values) and pm25_values[i] is not None else 0
-                aqi_d = _pm25_to_aqi(pm25_d)
-                temp_d = round(float(temp_values[i])) if i < len(temp_values) and temp_values[i] is not None else 0
-                wind_d = round(float(wind_values[i])) if i < len(wind_values) and wind_values[i] is not None else 0
-                humid_d = round(float(humid_values[i])) if i < len(humid_values) and humid_values[i] is not None else 0
-                date_str = ts[:10]
-                if date_str not in daily_map:
-                    daily_map[date_str] = {"date": date_str, "aqi_values": [], "temps": [], "winds": [], "humids": []}
-                daily_map[date_str]["aqi_values"].append(aqi_d)
-                daily_map[date_str]["temps"].append(temp_d)
-                daily_map[date_str]["winds"].append(wind_d)
-                daily_map[date_str]["humids"].append(humid_d)
-                continue
-            pm25 = float(pm25_values[i]) if i < len(pm25_values) and pm25_values[i] is not None else 0
-            temp = round(float(temp_values[i])) if i < len(temp_values) and temp_values[i] is not None else 0
-            humid = round(float(humid_values[i])) if i < len(humid_values) and humid_values[i] is not None else 0
-            wind = round(float(wind_values[i])) if i < len(wind_values) and wind_values[i] is not None else 0
+            readings = {
+                key: (float(values[i]) if i < len(values) and values[i] is not None else None)
+                for key, values in pollutant_arrays.items()
+            }
+            aqi_i, _, _ = _compute_aqi(readings)
+            if aqi_i is None:
+                aqi_i = 0
+            temp_i = round(float(temp_values[i])) if i < len(temp_values) and temp_values[i] is not None else 0
+            wind_i = round(float(wind_values[i])) if i < len(wind_values) and wind_values[i] is not None else 0
+            humid_i = round(float(humid_values[i])) if i < len(humid_values) and humid_values[i] is not None else 0
+            date_str = ts[:10]
+            if date_str not in daily_map:
+                daily_map[date_str] = {"date": date_str, "aqi_values": [], "temps": [], "winds": [], "humids": []}
 
-            aqi = _pm25_to_aqi(pm25)
-            cat = _aqi_category(aqi)
+            # Skip hours that are before the current hour but still accumulate daily stats
+            if ts < current_hour_str:
+                daily_map[date_str]["aqi_values"].append(aqi_i)
+                daily_map[date_str]["temps"].append(temp_i)
+                daily_map[date_str]["winds"].append(wind_i)
+                daily_map[date_str]["humids"].append(humid_i)
+                continue
 
             hourly.append({
                 "timestamp": ts,
-                "aqi": aqi,
-                "pm25": round(pm25, 1),
-                "temperature": temp,
-                "humidity": humid,
-                "wind_speed": wind,
-                "category": cat,
+                "aqi": aqi_i,
+                "pm25": round(readings["pm25"] or 0, 1),
+                "temperature": temp_i,
+                "humidity": humid_i,
+                "wind_speed": wind_i,
+                "category": _aqi_category(aqi_i),
             })
 
-            date_str = ts[:10]
-            if date_str not in daily_map:
-                daily_map[date_str] = {
-                    "date": date_str,
-                    "aqi_values": [],
-                    "temps": [],
-                    "winds": [],
-                    "humids": [],
-                }
-            daily_map[date_str]["aqi_values"].append(aqi)
-            daily_map[date_str]["temps"].append(temp)
-            daily_map[date_str]["winds"].append(wind)
-            daily_map[date_str]["humids"].append(humid)
+            daily_map[date_str]["aqi_values"].append(aqi_i)
+            daily_map[date_str]["temps"].append(temp_i)
+            daily_map[date_str]["winds"].append(wind_i)
+            daily_map[date_str]["humids"].append(humid_i)
 
         daily = []
         for date_str, d in daily_map.items():

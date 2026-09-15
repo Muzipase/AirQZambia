@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useCity } from '@/lib/city-context';
 import { fetchCityAirQuality } from '@/lib/api';
-import { pm25ToAqi } from '@/lib/aqi';
+import { computeAqi, aqiCategory, aqiHealthMessage } from '@/lib/aqi';
 import type { CityAirQuality } from '@/types';
 
 const cities = [
@@ -57,6 +57,15 @@ const aqiLevels = [
   { range: '201+', label: 'Hazardous', color: 'var(--aqi-hazardous)', desc: 'Emergency — seek medical help' },
 ];
 
+const pollutantLabels: Record<string, string> = {
+  pm25: 'PM2.5',
+  pm10: 'PM10',
+  no2: 'NO₂',
+  so2: 'SO₂',
+  co: 'CO',
+  o3: 'O₃',
+};
+
 /** Landing page: hero with live AQI preview, how-it-works, city picker, and AQI scale. */
 export default function LandingPage() {
   const { selectedCity, setSelectedCity } = useCity();
@@ -85,9 +94,11 @@ export default function LandingPage() {
     return () => clearInterval(interval);
   }, [loadLive]);
 
-  const aqiValue = liveData ? pm25ToAqi(liveData.readings.pm25) : null;
-  const category = liveData?.category ?? null;
-  const healthMsg = liveData?.health?.message ?? null;
+  const liveAqi = liveData ? computeAqi(liveData.readings) : null;
+  const aqiValue = liveAqi?.aqi ?? null;
+  const dominantKey = liveData && liveAqi?.dominant ? liveAqi.dominant : 'pm25';
+  const category = aqiValue != null ? aqiCategory(aqiValue) : (liveData?.category ?? null);
+  const healthMsg = aqiValue != null ? aqiHealthMessage(aqiValue) : (liveData?.health?.message ?? null);
   const catColor = category ? getCategoryColor(category) : 'var(--aqi-good)';
 
   return (
@@ -143,7 +154,7 @@ export default function LandingPage() {
               <span className="landing-aqi-preview-msg">{healthMsg ?? 'Loading live air quality data...'}</span>
               {liveData && (
                 <span className="landing-aqi-preview-source" style={{ fontSize: '0.65rem', color: 'var(--text-muted)', marginTop: 4, display: 'block' }}>
-                  {selectedCity} — PM2.5: {liveData.readings.pm25} µg/m³
+                  {selectedCity} — {pollutantLabels[dominantKey]}: {liveData.readings[dominantKey]} µg/m³
                 </span>
               )}
             </div>
