@@ -262,6 +262,7 @@ class PredictionInput(BaseModel):
     temperature: Optional[float] = None
     humidity: Optional[float] = None
     wind_speed: Optional[float] = None
+    rainfall: Optional[float] = None
 
 class PredictionResponse(BaseModel):
     """Model for prediction response"""
@@ -1240,7 +1241,8 @@ async def predict(input_data: PredictionInput, model_type: str = "optimized"):
             'o3': input_data.o3,
             'temperature': input_data.temperature or 25.0,
             'humidity': input_data.humidity or 60.0,
-            'wind_speed': input_data.wind_speed or 5.0
+            'wind_speed': input_data.wind_speed or 5.0,
+            'rainfall': input_data.rainfall or 0.0,
         }
 
         # Create DataFrame for prediction and apply the same preprocessing logic as training
@@ -1353,9 +1355,11 @@ async def predict_live(city: str, model_type: str = "optimized"):
         temp_values = wx_hourly.get("temperature_2m", [])
         humid_values = wx_hourly.get("relative_humidity_2m", [])
         wind_values = wx_hourly.get("wind_speed_10m", [])
+        precip_values = wx_hourly.get("precipitation", [])
         readings["temperature"] = float(temp_values[current_idx] or 25) if current_idx < len(temp_values) else 25.0
         readings["humidity"] = float(humid_values[current_idx] or 60) if current_idx < len(humid_values) else 60.0
         readings["wind_speed"] = float(wind_values[current_idx] or 5) if current_idx < len(wind_values) else 5.0
+        readings["rainfall"] = float(precip_values[current_idx] or 0) if current_idx < len(precip_values) else 0.0
 
         model = await cache.get_model(model_path, model_type)
 
