@@ -6,6 +6,7 @@ the whole app degrades gracefully to sample data when the backend is down.
 
 import io
 import os
+import time
 
 import pandas as pd
 import requests
@@ -152,6 +153,37 @@ def fetch_historical(city, start_date):
     return df
 
 
+@st.cache_data(ttl=1800)
+def fetch_historical_payload(city, start_date, end_date=""):
+    """Full historical archive payload: daily frame, per-pollutant stats and range.
+
+    Returns {"df", "stats", "date_range", "city"} or None when unavailable.
+    """
+    result = _get(
+        f"/public/city/{city}/historical",
+        params={
+            "start_date": start_date,
+            "end_date": end_date,
+            "pollutants": "pm25,pm10,no2,so2,co,o3",
+        },
+        timeout=25,
+    )
+    if not result or result.get("status") != "ok":
+        return None
+    rows = result.get("daily")
+    if not rows:
+        return None
+    df = pd.DataFrame(rows)
+    df["date"] = pd.to_datetime(df["date"])
+    df = df.sort_values("date").reset_index(drop=True)
+    return {
+        "df": df,
+        "stats": result.get("stats") or {},
+        "date_range": result.get("date_range") or {},
+        "city": result.get("city", city.title()),
+    }
+
+
 def post_prediction(payload, model_type="optimized"):
     path = f"/api/predict?model_type={model_type}" if model_type == "baseline" else "/api/predict"
     return _post(path, json=payload)
@@ -159,6 +191,28 @@ def post_prediction(payload, model_type="optimized"):
 
 def post_cross_validate(folds):
     return _post(f"/api/evaluation/cross-validate?folds={folds}", timeout=60)
+
+
+def run_cross_validation(folds, timeout=240, poll_interval=2):
+    """Start a cross-validation job on the backend and poll until it finishes.
+
+    The POST endpoint is asynchronous: it returns a job_id and the results are
+    only exposed via the status endpoint. Returns the completed payload, an
+    error payload, or None if the backend is unreachable.
+    """
+    job = post_cross_validate(folds)
+    if not job or not job.get("job_id"):
+        return job
+    job_id = job["job_id"]
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        resp = _get(f"/api/evaluation/cross-validate/status/{job_id}", timeout=15)
+        if not resp:
+            return None
+        if resp.get("status") in ("completed", "error"):
+            return resp
+        time.sleep(poll_interval)
+    return {"status": "timeout", "error": f"Cross-validation exceeded {timeout}s."}
 
 
 def post_explain_prediction(payload):

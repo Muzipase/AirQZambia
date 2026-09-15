@@ -25,7 +25,7 @@ from state import (
     fetch_evaluation_metrics,
     get_model_names,
     get_sample_metrics,
-    post_cross_validate,
+    run_cross_validation,
 )
 
 MINORITY_CLASSES = ("Very Unhealthy", "Unhealthy")
@@ -275,21 +275,33 @@ def render():
     folds = st.slider("Number of folds", 3, 10, 5)
     if st.button("Run cross-validation", key="cv_run"):
         with st.spinner(f"Running {folds}-fold cross-validation on the backend..."):
-            cv = post_cross_validate(folds)
-        if cv:
+            cv = run_cross_validation(folds)
+        if cv and cv.get("status") == "completed":
             from style_assets import status_list
 
+            result = cv["cv_results"]
+            scores = result.get("test_accuracy", [])
             status_list(
                 [
-                    ("Mean accuracy", f"{float(cv.get('mean_accuracy', 0) or 0) * 100:.1f}%", "good"),
-                    ("Std. deviation", f"{float(cv.get('std_accuracy', 0) or 0) * 100:.2f} pp", "neutral"),
-                    ("Folds", str(folds), "neutral"),
+                    ("Mean accuracy", f"{cv.get('mean_accuracy', 0) * 100:.1f}%", "good"),
+                    ("Std. deviation", f"{cv.get('std_accuracy', 0) * 100:.2f} pp", "neutral"),
+                    ("Best fold", f"{max(scores) * 100:.1f}%", "good") if scores else ("Best fold", "—", "neutral"),
+                    ("Worst fold", f"{min(scores) * 100:.1f}%", "warn") if scores else ("Worst fold", "—", "neutral"),
                 ]
             )
-            if cv.get("cv_results"):
-                st.dataframe(
-                    pd.DataFrame(cv["cv_results"]), width="stretch", hide_index=True
+            if scores:
+                fold_rows = pd.DataFrame(
+                    {
+                        "Fold": [f"Fold {i + 1}" for i in range(len(scores))],
+                        "Test accuracy": [f"{s * 100:.1f}%" for s in scores],
+                    }
                 )
+                fold_rows.loc[""] = ["Mean", f"{cv.get('mean_accuracy', 0) * 100:.1f}%"]
+                st.dataframe(fold_rows, width="stretch", hide_index=True)
+        elif cv and cv.get("status") == "error":
+            banner("err", f"Cross-validation failed: {cv.get('error', 'unknown error')}")
+        elif cv and cv.get("status") == "timeout":
+            banner("err", f"{cv.get('error', 'Cross-validation timed out.')}")
         else:
             banner("err", "Could not reach the backend cross-validation endpoint.")
     panel_close()

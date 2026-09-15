@@ -37,6 +37,7 @@ DEPENDENCIES = {
 VIEW_FILES = [
     "app/views/overview.py",
     "app/views/predictions.py",
+    "app/views/history.py",
     "app/views/evaluation.py",
     "app/views/explainability.py",
     "app/views/progress.py",

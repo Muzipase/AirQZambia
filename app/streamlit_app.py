@@ -51,7 +51,7 @@ st.sidebar.markdown(
     unsafe_allow_html=True,
 )
 
-from views import evaluation, explainability, overview, predictions, progress, system  # noqa: E402
+from views import evaluation, explainability, history, overview, predictions, progress, system  # noqa: E402
 
 NAV = {
     "Situation": [
@@ -61,6 +61,8 @@ NAV = {
     "Decision Support": [
         st.Page(predictions.render, title="Forecast & Scenarios", icon="🎯",
                 url_path="predictions"),
+        st.Page(history.render, title="Historical Data", icon="🗓️",
+                url_path="history"),
         st.Page(evaluation.render, title="Model Performance", icon="📊",
                 url_path="evaluation"),
         st.Page(explainability.render, title="Explainability", icon="🧠",
