@@ -11,7 +11,7 @@ import pandas as pd
 import requests
 import streamlit as st
 
-API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000")
+API_BASE_URL = os.environ.get("API_BASE_URL", "http://localhost:8000").rstrip("/")
 
 CITIES = ["Lusaka", "Ndola", "Kitwe"]
 DATA_SOURCES = ["Auto (Open-Meteo + OpenAQ)", "Open-Meteo", "OpenAQ"]
