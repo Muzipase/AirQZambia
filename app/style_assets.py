@@ -891,6 +891,15 @@ def aqi_command_card(snapshot):
             "</div>"
         )
 
+    driver_row = ""
+    if snapshot.get("dominant"):
+        driver_row = (
+            "<div class='aqi-meta-row'>"
+            "<span class='mk'>AQI driven by</span>"
+            f"<span class='mv'>{_html.escape(str(snapshot['dominant']))}</span>"
+            "</div>"
+        )
+
     updated_row = (
         "<div class='aqi-meta-row'>"
         "<span class='mk'>Updated</span>"
@@ -921,6 +930,7 @@ def aqi_command_card(snapshot):
               </div>
               <div class='aqi-command-side'>
                 {aqi_gauge_html(float(value) if str(value).replace('.','').isdigit() else 0.0)}
+                {driver_row}
                 {outcome_row}
                 {conf_row}
                 {updated_row}

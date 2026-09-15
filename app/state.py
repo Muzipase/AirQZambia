@@ -272,25 +272,167 @@ def get_pollutant_readings(source="auto", city="Lusaka"):
     return dict(SAMPLE_READINGS)
 
 
+def _aqi_from_breakpoints(value, breakpoints):
+    """Piecewise-linear US-EPA AQI sub-index for a concentration.
+
+    breakpoints: list of (c_low, c_high, i_low, i_high). Returns None when the
+    value is missing / non-finite, 500 when it exceeds all defined bands.
+    """
+    try:
+        value = float(value)
+    except (TypeError, ValueError):
+        return None
+    from math import isfinite
+
+    if not isfinite(value):
+        return None
+    for c_low, c_high, i_low, i_high in breakpoints:
+        if value <= c_high:
+            return int(round(i_low + ((value - c_low) / (c_high - c_low)) * (i_high - i_low)))
+    return 500
+
+
+# ---- US-EPA 2016 AQI breakpoint tables -------------------------------
+# PM2.5 / PM10 / NO2 / SO2 / O3 are graded directly in µg/m³ (Open-Meteo's
+# unit). CO is graded in mg/m³ so µg/m³ values are divided by 1000 first.
+PM25_AQI_BREAKPOINTS = [
+    (0.0, 12.0, 0, 50),
+    (12.0, 35.4, 50, 100),
+    (35.4, 55.4, 100, 150),
+    (55.4, 150.4, 150, 200),
+    (150.4, 250.4, 200, 300),
+    (250.4, 500.4, 300, 500),
+]
+PM10_AQI_BREAKPOINTS = [
+    (0.0, 54.0, 0, 50),
+    (54.0, 154.0, 50, 100),
+    (154.0, 254.0, 100, 150),
+    (254.0, 354.0, 150, 200),
+    (354.0, 424.0, 200, 300),
+    (424.0, 504.0, 300, 400),
+    (504.0, 604.0, 400, 500),
+]
+NO2_AQI_BREAKPOINTS = [
+    (0.0, 53.0, 0, 50),
+    (53.0, 100.0, 50, 100),
+    (100.0, 360.0, 100, 150),
+    (360.0, 649.0, 150, 200),
+    (649.0, 1249.0, 200, 300),
+    (1249.0, 1649.0, 300, 400),
+    (1649.0, 2049.0, 400, 500),
+]
+SO2_AQI_BREAKPOINTS = [
+    (0.0, 35.0, 0, 50),
+    (35.0, 75.0, 50, 100),
+    (75.0, 185.0, 100, 150),
+    (185.0, 304.0, 150, 200),
+    (304.0, 604.0, 200, 300),
+    (604.0, 804.0, 300, 400),
+    (804.0, 1004.0, 400, 500),
+]
+CO_AQI_BREAKPOINTS = [
+    (0.0, 4.4, 0, 50),
+    (4.4, 9.4, 50, 100),
+    (9.4, 12.4, 100, 150),
+    (12.4, 15.4, 150, 200),
+    (15.4, 30.4, 200, 300),
+    (30.4, 40.4, 300, 400),
+    (40.4, 50.4, 400, 500),
+]
+O3_AQI_BREAKPOINTS = [
+    (0.0, 108.0, 0, 50),
+    (108.0, 140.0, 50, 100),
+    (140.0, 170.0, 100, 150),
+    (170.0, 210.0, 150, 200),
+    (210.0, 400.0, 200, 300),
+    (400.0, 600.0, 300, 400),
+    (600.0, 800.0, 400, 500),
+]
+
+
 def pm25_to_aqi(pm25):
     """US-EPA AQI index from a PM2.5 concentration using EPA breakpoints.
 
-    Mirrors src evaluation (api.py `_pm25_to_aqi`) and the frontend lib so all
-    UIs present the same index for the same concentration.
+    Mirrors api.py `_pm25_to_aqi` and the frontend lib so all UIs present the
+    same index for the same concentration.
     """
-    breakpoints = [
-        (0.0, 12.0, 0, 50),
-        (12.0, 35.4, 50, 100),
-        (35.4, 55.4, 100, 150),
-        (55.4, 150.4, 150, 200),
-        (150.4, 250.4, 200, 300),
-        (250.4, 500.4, 300, 500),
-    ]
-    pm25 = float(pm25)
-    for c_low, c_high, i_low, i_high in breakpoints:
-        if pm25 <= c_high:
-            return int(round(i_low + ((pm25 - c_low) / (c_high - c_low)) * (i_high - i_low)))
-    return 500
+    return _aqi_from_breakpoints(pm25, PM25_AQI_BREAKPOINTS)
+
+
+def pm10_to_aqi(pm10):
+    """US-EPA AQI index from a PM10 concentration (µg/m³)."""
+    return _aqi_from_breakpoints(pm10, PM10_AQI_BREAKPOINTS)
+
+
+def no2_to_aqi(no2):
+    """US-EPA AQI index from an NO2 concentration (µg/m³)."""
+    return _aqi_from_breakpoints(no2, NO2_AQI_BREAKPOINTS)
+
+
+def so2_to_aqi(so2):
+    """US-EPA AQI index from an SO2 concentration (µg/m³)."""
+    return _aqi_from_breakpoints(so2, SO2_AQI_BREAKPOINTS)
+
+
+def co_to_aqi(co):
+    """US-EPA AQI index from a CO concentration (µg/m³ -> mg/m³)."""
+    return _aqi_from_breakpoints(co / 1000.0, CO_AQI_BREAKPOINTS)
+
+
+def o3_to_aqi(o3):
+    """US-EPA AQI index from an O3 concentration (µg/m³)."""
+    return _aqi_from_breakpoints(o3, O3_AQI_BREAKPOINTS)
+
+
+# Pollutant key -> its AQI sub-index function, in display order.
+AQI_FUNCTIONS = {
+    "pm25": pm25_to_aqi,
+    "pm10": pm10_to_aqi,
+    "no2": no2_to_aqi,
+    "so2": so2_to_aqi,
+    "co": co_to_aqi,
+    "o3": o3_to_aqi,
+}
+
+
+def compute_aqi(readings):
+    """US-EPA multi-pollutant AQI from per-pollutant concentrations.
+
+    readings: dict of pollutant key -> concentration (µg/m³ for all).
+    Returns (aqi, dominant pollutant key, dict of sub-indices). Missing /
+    non-finite values are skipped; empty input yields (None, None, {}).
+    Ties favour the earlier pollutant in AQI_FUNCTIONS order (e.g. PM2.5).
+    """
+    sub_indices = {}
+    for pollutant, func in AQI_FUNCTIONS.items():
+        value = readings.get(pollutant)
+        if value is None:
+            continue
+        sub = func(value)
+        if sub is not None:
+            sub_indices[pollutant] = sub
+    if not sub_indices:
+        return None, None, {}
+    aqi = max(sub_indices.values())
+    dominant = next(p for p in AQI_FUNCTIONS if p in sub_indices and sub_indices[p] == aqi)
+    return aqi, dominant, sub_indices
+
+
+def classify_aqi(aqi):
+    """(level, health_message) from an AQI index value using the shared bands.
+
+    Bands mirror the Next.js landing scale and the backend so a single index
+    maps to identical labels on every surface.
+    """
+    if aqi <= 50:
+        return "Good", "Air quality is satisfactory and poses little or no risk."
+    if aqi <= 100:
+        return "Moderate", "Acceptable air quality; sensitive groups should limit prolonged exposure."
+    if aqi <= 150:
+        return "Unhealthy", "Unhealthy for sensitive groups — reduce prolonged outdoor exposure."
+    if aqi <= 200:
+        return "Very Unhealthy", "Health alert — serious effects possible; limit outdoor activity."
+    return "Hazardous", "Health alert — serious effects likely; stay indoors where possible."
 
 
 def classify_pm25(pm25):
@@ -321,14 +463,13 @@ def get_aqi_for_city(city):
 
 
 def get_live_aqi_for_city(source="auto", city="Lusaka"):
-    """Prefer the backend's raw feed; fall back to a static reading."""
+    """Multi-pollutant EPA AQI from the backend feed; static fallback otherwise."""
     feed = fetch_live_feed(source=source, city=city)
     if feed and feed.get("status") == "success":
-        raw = fetch_raw_csv()
-        if raw is not None and "pm25" in raw.columns and len(raw) > 0:
-            latest_pm25 = float(raw["pm25"].iloc[-1])
-            level, message = classify_pm25(latest_pm25)
-            return pm25_to_aqi(latest_pm25), level, message
+        aqi, dominant, _ = compute_aqi(get_pollutant_readings(source=source, city=city))
+        if aqi is not None:
+            level, message = classify_aqi(aqi)
+            return aqi, level, message
     return get_aqi_for_city(city)
 
 
@@ -337,28 +478,31 @@ def get_live_snapshot(city="Lusaka", source="auto"):
 
     Built from /api/predict/live when available (prediction, confidence and
     per-pollutant readings), else from the raw feed, else from approved
-    reference values. AQI number follows the app convention: PM2.5 quick
-    index classified with US-EPA breakpoints.
+    reference values. AQI is the US-EPA multi-pollutant index — the maximum of
+    the per-pollutant sub-indices — classified on the shared AQI bands.
     """
     predict = fetch_predict_live(city)
     if predict and predict.get("status") == "success":
-        readings = predict.get("live_readings") or {}
-        pm25 = readings.get("pm25")
-        if pm25 is not None:
-            pm25 = float(pm25)
-        else:
-            pm25 = SAMPLE_READINGS["pm25"]
-        level, message = classify_pm25(pm25)
-        latest = float(readings["pm25"]) if readings.get("pm25") is not None else pm25
+        readings = {
+            k: float(v) for k, v in (predict.get("live_readings") or {}).items()
+            if k in POLLUTANTS and v is not None
+        }
+        if not readings:
+            readings = dict(SAMPLE_READINGS)
+        aqi, dominant, _ = compute_aqi(readings)
+        if aqi is None:
+            aqi, dominant, _ = compute_aqi(SAMPLE_READINGS)
+        level, message = classify_aqi(aqi)
         timestamp = predict.get("timestamp")
         return {
             "city": city,
-            "value": pm25_to_aqi(latest),
+            "value": aqi,
             "unit": "AQI",
             "label": level,
             "color": _aqi_color(level),
             "message": message,
-            "readings": {k: float(v) for k, v in readings.items() if k in POLLUTANTS and v is not None},
+            "dominant": POLLUTANTS[dominant]["label"] if dominant else None,
+            "readings": readings,
             "prediction": predict.get("prediction"),
             "confidence": predict.get("confidence"),
             "model_label": "Bayesian-Optimized SVM (hybrid)",
@@ -366,6 +510,8 @@ def get_live_snapshot(city="Lusaka", source="auto"):
             "timestamp": timestamp,
         }
     value, level, message = get_live_aqi_for_city(source=source, city=city)
+    readings = get_pollutant_readings(source=source, city=city)
+    _, dominant, _ = compute_aqi(readings)
     return {
         "city": city,
         "value": value,
@@ -373,7 +519,8 @@ def get_live_snapshot(city="Lusaka", source="auto"):
         "label": level,
         "color": _aqi_color(level),
         "message": message,
-        "readings": get_pollutant_readings(source=source, city=city),
+        "dominant": POLLUTANTS[dominant]["label"] if dominant else None,
+        "readings": readings,
         "prediction": None,
         "confidence": None,
         "model_label": "Bayesian-Optimized SVM (hybrid)",
