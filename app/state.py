@@ -108,6 +108,32 @@ def fetch_raw_csv():
     return None
 
 
+@st.cache_data(ttl=120)
+def fetch_processed_csv():
+    """Real processed/training dataset from the backend, or None."""
+    try:
+        response = requests.get(
+            f"{API_BASE_URL}/api/data/download", params={"data_type": "processed"}, timeout=15
+        )
+        if response.ok:
+            return pd.read_csv(io.StringIO(response.text))
+    except (requests.RequestException, Exception):
+        pass
+    return None
+
+
+@st.cache_data(ttl=120)
+def fetch_imbalance_analysis():
+    """Class-distribution analysis of the processed dataset from the backend."""
+    return _get("/api/imbalance/analyze", timeout=15) or {}
+
+
+@st.cache_data(ttl=120)
+def fetch_system_metrics():
+    """Runtime CPU / memory / up-time reporting from the backend."""
+    return _get("/api/system/metrics", timeout=8) or {}
+
+
 @st.cache_data(ttl=1800)
 def fetch_historical(city, start_date):
     """Real daily-averaged history from the backend (Open-Meteo archive)."""
@@ -362,3 +388,217 @@ def get_sample_metrics():
         "roc_auc": 0.93,
         "support": 120,
     }
+
+
+# ---------------------------------------------------------------------------
+# ML pipeline progress
+# ---------------------------------------------------------------------------
+
+PIPELINE_STAGES = [
+    {
+        "key": "ingestion",
+        "num": 1,
+        "title": "Data ingestion & validation",
+        "icon": "download",
+        "desc": ("Fetch hourly air quality and meteorology from Open-Meteo + OpenAQ "
+                 "for Lusaka, Kitwe and Ndola, then validate schemas and ranges."),
+    },
+    {
+        "key": "preprocessing",
+        "num": 2,
+        "title": "Preprocessing & feature engineering",
+        "icon": "flask",
+        "desc": ("Clean, impute missing values, engineer lagged/meteorological features, "
+                 "label the AQI category and scale inputs for the SVM."),
+    },
+    {
+        "key": "imbalance",
+        "num": 3,
+        "title": "Imbalance analysis & SMOTE-Tomek",
+        "icon": "scale",
+        "desc": ("Quantify class imbalance and resample the training set with SMOTE-Tomek "
+                 "so rare high-risk classes are not ignored."),
+    },
+    {
+        "key": "training",
+        "num": 4,
+        "title": "Model training",
+        "icon": "cpu",
+        "desc": ("Train the default RBF SVM baseline and the Bayesian-optimized SVM "
+                 "(TPE) on the balanced training set."),
+    },
+    {
+        "key": "evaluation",
+        "num": 5,
+        "title": "Evaluation & assurance",
+        "icon": "chart",
+        "desc": ("Compute accuracy, precision, recall and F1 per class, persist the "
+                 "baseline-vs-optimized comparison and confusion matrices."),
+    },
+    {
+        "key": "explainability",
+        "num": 6,
+        "title": "Explainability (SHAP)",
+        "icon": "sparkles",
+        "desc": ("Attribte each classification to its input signals via SHAP and cache "
+                 "the global feature-importance summary for the explainability view."),
+    },
+]
+
+
+def build_pipeline_stages(status=None, raw=None, processed=None, imbalance=None,
+                          metrics=None, has_shap=False):
+    """Build a clean, backend-truthful stage report.
+
+    Every stage's state is a pure function of the signals the API actually
+    exposes, so the rail shows exactly what is on disk — nothing fabricated.
+
+    Returns a list of dicts:
+      {key, num, title, icon, desc, state, chips: [(label, value)], detail}
+    """
+    online = bool(status)
+    models = (status or {}).get("models") or {}
+    baseline_trained = str(models.get("baseline_svm", "")).lower() == "trained"
+    optimized_trained = str(models.get("optimized_svm", "")).lower() == "trained"
+
+    def _millis(n):
+        try:
+            return f"{int(n):,}"
+        except (TypeError, ValueError):
+            return "—"
+
+    stages = []
+
+    # Stage 1 — data ingestion
+    raw_rows = len(raw) if raw is not None else 0
+    raw_cols = raw.shape[1] if raw is not None else 0
+    raw_status = "offline" if not online else ("completed" if raw is not None else "pending")
+    stages.append({
+        **PIPELINE_STAGES[0],
+        "state": raw_status,
+        "chips": [
+            ("Records", _millis(raw_rows) if raw is not None else "—"),
+            ("Columns", str(raw_cols) if raw is not None else "—"),
+            ("Sources", "Open-Meteo + OpenAQ"),
+        ],
+        "detail": (
+            {"records": raw_rows, "columns": raw_cols}
+            if raw is not None else None
+        ),
+    })
+
+    # Stage 2 — preprocessing
+    pr_rows = len(processed) if processed is not None else 0
+    pr_cols = processed.shape[1] if processed is not None else 0
+    pr_state = "offline" if not online else ("completed" if processed is not None else "pending")
+    stages.append({
+        **PIPELINE_STAGES[1],
+        "state": pr_state,
+        "chips": [
+            ("Records", _millis(pr_rows) if processed is not None else "—"),
+            ("Features", str(pr_cols - 1) if processed is not None else "—"),
+            ("Scaling", "Min-max fitted" if processed is not None else "—"),
+        ],
+        "detail": (
+            {"records": pr_rows, "features": pr_cols - 1, "columns": list(processed.columns)}
+            if processed is not None else None
+        ),
+    })
+
+    # Stage 3 — imbalance analysis & SMOTE-Tomek
+    has_imbalance = bool(imbalance and imbalance.get("class_distribution"))
+    imb_state = "offline" if not online else (
+        "completed" if has_imbalance else "pending"
+    )
+    class_dist = (imbalance or {}).get("class_distribution") or {}
+    if class_dist:
+        total = sum(int(v) for v in class_dist.values()) or 1
+        dominant = max(class_dist.items(), key=lambda kv: kv[1]) if class_dist else (None, 0)
+        rare = min(class_dist.items(), key=lambda kv: kv[1]) if class_dist else (None, 0)
+        minority_pct = rare[1] / total * 100
+        imb_chips = [
+            ("Classes", str(len(class_dist))),
+            ("Dominant", f"{dominant[0]} · {dominant[1] / total * 100:.0f}%"),
+            ("Rarest", f"{rare[0]} · {minority_pct:.1f}%"),
+        ]
+    else:
+        imb_chips = [("Classes", "—"), ("Dominant", "—"), ("Rarest", "—")]
+    stages.append({
+        **PIPELINE_STAGES[2],
+        "state": imb_state,
+        "chips": imb_chips,
+        "detail": imbalance if has_imbalance else None,
+    })
+
+    # Stage 4 — model training
+    trained_count = int(baseline_trained) + int(optimized_trained)
+    tr_state = "offline" if not online else (
+        "completed" if trained_count == 2 else (
+            "pending" if trained_count == 0 else "partial"
+        )
+    )
+    stages.append({
+        **PIPELINE_STAGES[3],
+        "state": tr_state,
+        "chips": [
+            ("Baseline", "trained" if baseline_trained else "absent"),
+            ("Optimized", "trained" if optimized_trained else "absent"),
+            ("Balancing", "SMOTE-Tomek"),
+        ],
+        "detail": {
+            "baseline": baseline_trained,
+            "optimized": optimized_trained,
+            "models_present": [k for k, v in models.items()
+                               if str(v).lower() == "trained"],
+        },
+    })
+
+    # Stage 5 — evaluation
+    metrics_payload = None
+    if isinstance(metrics, dict):
+        metrics_payload = metrics.get("metrics") if isinstance(metrics.get("metrics"), dict) else metrics
+    has_eval = bool(metrics_payload and "accuracy" in metrics_payload)
+    ev_state = "offline" if not online else ("completed" if has_eval else "pending")
+    def _pct(key):
+        try:
+            return f"{float(metrics_payload.get(key, 0)) * 100:.1f}%"
+        except (TypeError, ValueError):
+            return "—"
+    stages.append({
+        **PIPELINE_STAGES[4],
+        "state": ev_state,
+        "chips": [
+            ("Accuracy", _pct("accuracy")),
+            ("Precision", _pct("precision")),
+            ("Recall", _pct("recall")),
+            ("F1", _pct("f1_score")),
+        ],
+        "detail": metrics_payload if has_eval else None,
+    })
+
+    # Stage 6 — explainability
+    sh_state = "offline" if not online else ("completed" if has_shap else "pending")
+    stages.append({
+        **PIPELINE_STAGES[5],
+        "state": sh_state,
+        "chips": [
+            ("SHAP summary", "cached" if has_shap else "not generated"),
+            ("Explainer", "KernelExplainer"),
+        ],
+        "detail": {"has_summary": bool(has_shap)},
+    })
+
+    return stages
+
+
+def pipeline_summary(stages):
+    """Aggregate stage states into (state_label, completed, total, percent)."""
+    total = len(stages)
+    completed = sum(1 for s in stages if s["state"] == "completed")
+    state = "completed" if completed == total else (
+        "partial" if completed > 0 else (
+            "offline" if total and all(s["state"] == "offline" for s in stages)
+            else "pending"
+        )
+    )
+    return state, completed, total, (completed / total * 100 if total else 0)

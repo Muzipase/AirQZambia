@@ -51,7 +51,7 @@ st.sidebar.markdown(
     unsafe_allow_html=True,
 )
 
-from views import evaluation, explainability, overview, predictions, system  # noqa: E402
+from views import evaluation, explainability, overview, predictions, progress, system  # noqa: E402
 
 NAV = {
     "Situation": [
@@ -67,6 +67,8 @@ NAV = {
                 url_path="explainability"),
     ],
     "Platform": [
+        st.Page(progress.render, title="Pipeline Progress", icon="⏱️",
+                url_path="pipeline-progress"),
         st.Page(system.render, title="System & Testing", icon="🛠️",
                 url_path="system"),
     ],

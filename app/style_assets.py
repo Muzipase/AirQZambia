@@ -585,14 +585,74 @@ table.conditions .c-unit {{ color: var(--text-muted); font-size: 0.7rem; font-we
 .stCodeBlock {{ border-radius: 12px !important; border: 1px solid var(--line); }}
 [data-testid="stDataFrame"] {{ border-radius: 12px; border: 1px solid var(--line); overflow: hidden; }}
 [data-testid="stDataFrame"] thead tr th {{ background: #f7f8fa !important; font-weight: 700; color: var(--text-primary); }}
-
-footer {{ visibility: hidden; }}
+footer {{
+  visibility: hidden;
+}}
 #MainMenu {{ visibility: hidden; }}
 footer:after {{
   content: "AirQ Zambia - National Air Quality Intelligence Platform";
   visibility: visible; display: block;
   color: var(--text-muted); font-size: 0.72rem; text-align: center; padding: 14px;
 }}
+
+/* ---------- ML pipeline progress rail ---------- */
+.pipe-overview {{
+  display: flex; align-items: center; justify-content: space-between; gap: 1.4rem; flex-wrap: wrap;
+  background: var(--bg-secondary); border: 1px solid var(--line); border-radius: 16px;
+  padding: 1.25rem 1.5rem; box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06); margin: 0.4rem 0 1.5rem;
+}}
+.pipe-ov-left {{ min-width: 0; }}
+.pipe-ov-label {{ font-size: 0.66rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--text-muted); font-weight: 800; }}
+.pipe-ov-title {{ font-size: 1.25rem; font-weight: 800; color: var(--text-primary); margin-top: 4px; letter-spacing: -0.02em; }}
+.pipe-ov-sub {{ font-size: 0.8rem; color: var(--text-muted); margin-top: 3px; line-height: 1.55; }}
+.pipe-ov-meter {{ flex: 1; min-width: 240px; max-width: 460px; }}
+.overall-bar {{ height: 13px; border-radius: 999px; background: rgba(15, 23, 42, 0.07); overflow: hidden; margin: 0.3rem 0 0.45rem; }}
+.overall-fill {{ height: 100%; border-radius: 999px; transition: width 0.4s ease; }}
+.overall-scale {{ display: flex; justify-content: space-between; font-size: 0.66rem; color: var(--text-muted); font-weight: 700; letter-spacing: 0.04em; }}
+.pipe-ov-big {{ font-size: 2rem; font-weight: 800; color: var(--text-primary); font-variant-numeric: tabular-nums; line-height: 1; }}
+.pipe-ov-big small {{ font-size: 0.78rem; color: var(--text-muted); font-weight: 700; }}
+
+.pipe-rail {{ position: relative; margin: 0.4rem 0 1.5rem; }}
+.pipe-stage {{ display: grid; grid-template-columns: 54px 1fr; gap: 1rem; position: relative; }}
+.pipe-stage + .pipe-stage {{ margin-top: 1.15rem; }}
+.pipe-track {{ position: absolute; left: 26px; top: 56px; bottom: -1.15rem; width: 2px; background: var(--line-strong); }}
+.pipe-stage:last-child .pipe-track {{ display: none; }}
+.pipe-col {{ display: flex; flex-direction: column; align-items: center; }}
+.pipe-marker {{
+  width: 52px; height: 52px; flex: 0 0 auto; border-radius: 14px;
+  display: grid; place-items: center; z-index: 1;
+}}
+.pipe-marker.completed {{ background: rgba(22, 163, 74, 0.12); color: #15803d; box-shadow: inset 0 0 0 1.5px #16a34a; }}
+.pipe-marker.partial {{ background: rgba(245, 158, 11, 0.10); color: #b45309; box-shadow: inset 0 0 0 1.5px #f59e0b; }}
+.pipe-marker.pending {{ background: rgba(148, 163, 184, 0.12); color: #64748b; box-shadow: inset 0 0 0 1.5px #94a3b8; }}
+.pipe-marker.offline {{ background: rgba(239, 68, 68, 0.08); color: #dc2626; box-shadow: inset 0 0 0 1.5px #fca5a5; }}
+.pipe-marker .n {{ font-size: 0.6rem; font-weight: 800; letter-spacing: 0.06em; }}
+
+.pipe-body {{
+  background: var(--bg-secondary); border: 1px solid var(--line); border-radius: 14px;
+  padding: 1rem 1.25rem; box-shadow: 0 1px 3px rgba(15, 23, 42, 0.04);
+}}
+.pipe-head {{ display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }}
+.pipe-title {{ font-size: 0.97rem; font-weight: 800; color: var(--text-primary); }}
+.pipe-eyebrow {{ font-size: 0.62rem; letter-spacing: 0.12em; text-transform: uppercase; color: var(--zambia-green); font-weight: 800; margin-bottom: 3px; }}
+.pipe-desc {{ font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; line-height: 1.55; max-width: 66ch; }}
+.pipe-chip {{
+  font-size: 0.64rem; font-weight: 800; letter-spacing: 0.07em; text-transform: uppercase;
+  padding: 0.24rem 0.7rem; border-radius: 999px; white-space: nowrap;
+}}
+.pipe-chip.completed {{ background: #f0fdf4; color: #15803d; border: 1px solid #bbf7d0; }}
+.pipe-chip.partial {{ background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }}
+.pipe-chip.pending {{ background: #f8fafc; color: #64748b; border: 1px solid #e2e8f0; }}
+.pipe-chip.offline {{ background: #fef2f2; color: #dc2626; border: 1px solid #fecaca; }}
+.pipe-kpis {{ display: flex; flex-wrap: wrap; gap: 0.55rem; margin-top: 0.8rem; }}
+.pipe-kpi {{
+  font-size: 0.72rem; color: var(--text-secondary); background: #f7f8fa;
+  border: 1px solid var(--line); border-radius: 8px; padding: 0.35rem 0.7rem; font-weight: 600;
+}}
+.pipe-kpi b {{ color: var(--text-primary); font-weight: 800; }}
+
+.pipe-detail {{ margin-top: 0.9rem; padding-top: 0.8rem; border-top: 1px dashed var(--line-strong); }}
+.pipe-note {{ font-size: 0.72rem; color: var(--text-muted); margin-top: 0.7rem; line-height: 1.6; }}
 
 @media (max-width: 1120px) {{
   .stApp {{ padding: 1rem !important; }}
@@ -601,6 +661,7 @@ footer:after {{
   .kpi-grid, .pollutant-grid {{ grid-template-columns: 1fr 1fr; }}
   .aqi-flex, .forecast {{ grid-template-columns: 1fr; }}
   .spotlight {{ flex-direction: column; align-items: flex-start; }}
+  .pipe-ov-meter {{ max-width: none; }}
 }}
 @media (max-width: 640px) {{
   .kpi-grid, .pollutant-grid, .status-list {{ grid-template-columns: 1fr; }}
@@ -608,7 +669,6 @@ footer:after {{
 }}
 </style>
 """
-
 
 # ---------------------------------------------------------------------------
 # Render helpers

@@ -39,6 +39,7 @@ VIEW_FILES = [
     "app/views/predictions.py",
     "app/views/evaluation.py",
     "app/views/explainability.py",
+    "app/views/progress.py",
     "app/views/system.py",
 ]
 
