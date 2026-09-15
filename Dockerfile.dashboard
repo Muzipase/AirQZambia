@@ -1,5 +1,8 @@
 FROM python:3.13-slim
 
+RUN apt-get update && apt-get install -y --no-install-recommends nginx \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
 COPY requirements-dashboard.txt .
@@ -7,7 +10,11 @@ RUN pip install --no-cache-dir -r requirements-dashboard.txt
 
 WORKDIR /app/dashboard
 COPY app/ .
+COPY pwa/ /var/www/pwa/
+COPY deploy/nginx.conf.template /etc/nginx/conf.d/default.conf.template
+COPY deploy/entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 EXPOSE 8501
 
-CMD ["sh", "-c", "streamlit run streamlit_app.py --server.address 0.0.0.0 --server.port ${PORT:-8501} --server.headless true"]
+ENTRYPOINT ["/entrypoint.sh"]
