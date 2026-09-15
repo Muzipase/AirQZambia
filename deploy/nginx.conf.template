@@ -8,11 +8,16 @@ server {
 
     root /var/www/pwa;
 
+    # ---- Static PWA assets (served from disk, never proxied to Streamlit) ----
     location = /service-worker.js { return 301 /sw.js; }
     location = /apple-touch-icon.png { try_files /icons/apple-touch-icon-180.png =404; }
+    location = /sw.js { try_files /sw.js =404; }
+    location = /manifest.json { try_files /manifest.json =404; }
+    location = /offline.html { try_files /offline.html =404; }
+    location /icons/ { try_files $uri =404; }
 
     location / {
-        sub_filter '</head>' '<link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#12161f"><link rel="icon" type="image/png" href="/icons/icon-192.png"><link rel="apple-touch-icon" href="/icons/apple-touch-icon-180.png"><script>if("serviceWorker" in navigator){addEventListener("load",function(){navigator.serviceWorker.register("/sw.js")})}</script></head>';
+        sub_filter '</head>' '<link rel="manifest" href="/manifest.json"><meta name="theme-color" content="#12161f"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="AirQ Zambia"><link rel="icon" type="image/png" href="/icons/icon-192.png"><link rel="apple-touch-icon" href="/icons/apple-touch-icon-180.png"><script>(function(){if("serviceWorker" in navigator){window.addEventListener("load",function(){navigator.serviceWorker.register("/sw.js").then(function(r){r.addEventListener("updatefound",function(){var w=r.installing;if(w){w.addEventListener("statechange",function(){if(w.state==="installed"&&navigator.serviceWorker.controller){showUpdate()}})}})}).catch(function(){})});}function showUpdate(){if(window.__airqUpdate)return;window.__airqUpdate=1;var d=document.createElement("div");d.setAttribute("role","status");d.innerHTML="A newer version is ready &mdash; <a href=\"javascript:location.reload()\">reload now</a>";d.style.cssText="position:fixed;z-index:9999;bottom:16px;left:50%;transform:translateX(-50%);background:#006a3d;color:#fff;padding:10px 18px;border-radius:999px;font:600 13px Inter,Segoe UI,sans-serif;box-shadow:0 6px 20px rgba(0,0,0,.25)";document.body.appendChild(d)}})();</script></head>';
         sub_filter_types text/html;
         sub_filter_once on;
 
