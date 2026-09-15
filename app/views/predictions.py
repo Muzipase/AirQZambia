@@ -29,8 +29,8 @@ from state import (
 
 
 def _result_card(city, prediction, confidence, readings=None):
-    color = {"Good": "#16a34a", "Moderate": "#eab308", "Sensitive": "#f97316",
-             "Unhealthy": "#ef4444", "Very Unhealthy": "#7c2d92",
+    color = {"Good": "#16a34a", "Moderate": "#eab308",
+             "Unhealthy": "#f97316", "Very Unhealthy": "#ef4444",
              "Hazardous": "#5f0f0f"}.get(prediction, "#006a3d")
     conf_safe = max(0.0, min(1.0, float(confidence or 0)))
 
@@ -208,9 +208,8 @@ def render():
         [
             ("Good", "#16a34a"),
             ("Moderate", "#eab308"),
-            ("Sensitive", "#f97316"),
-            ("Unhealthy", "#ef4444"),
-            ("Very Unhealthy", "#7c2d92"),
+            ("Unhealthy", "#f97316"),
+            ("Very Unhealthy", "#ef4444"),
             ("Hazardous", "#5f0f0f"),
         ]
     )

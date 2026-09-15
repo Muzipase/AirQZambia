@@ -294,24 +294,29 @@ def pm25_to_aqi(pm25):
 
 
 def classify_pm25(pm25):
-    """Return (aqi_level, health_message) using US-EPA PM2.5 breakpoints."""
+    """Return (aqi_level, health_message) using US-EPA PM2.5 breakpoints.
+
+    Category names mirror the backend (categorize_aqi) and Next.js UI so every
+    surface reports the same labels: Good / Moderate / Unhealthy / Very
+    Unhealthy / Hazardous.
+    """
     if pm25 <= 12.0:
         return "Good", "Air quality is satisfactory and poses little or no risk."
     if pm25 <= 35.4:
         return "Moderate", "Acceptable air quality; sensitive groups should limit prolonged exposure."
     if pm25 <= 55.4:
-        return "Sensitive", "Unhealthy for sensitive groups — reduce outdoor activity if sensitive."
+        return "Unhealthy", "Air quality is unhealthy for sensitive groups — reduce prolonged outdoor exposure."
     if pm25 <= 150.4:
-        return "Unhealthy", "Health effects possible for everyone; limit outdoor activity."
+        return "Very Unhealthy", "Health alert — serious effects possible; limit outdoor activity."
     return "Hazardous", "Health alert — serious effects likely; stay indoors where possible."
 
 
 def get_aqi_for_city(city):
     """Static fallback readings used when live data is not available."""
     if city == "Ndola":
-        return 118, "Sensitive", "Unhealthy for sensitive groups — take precautions."
+        return 118, "Unhealthy", "Limit outdoor activity — air quality is unhealthy."
     if city == "Kitwe":
-        return 156, "Unhealthy", "Limit outdoor activity and keep windows closed."
+        return 156, "Very Unhealthy", "Health alert — stay indoors where possible."
     return 42, "Good", "Air quality is safe for all activities."
 
 

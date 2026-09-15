@@ -42,8 +42,8 @@ AQI_COLORS = {k: v[0] for k, v in AQI_STYLES.items()}
 AQI_BANDS = [
     (0, 50, "#22c55e", "Good"),
     (50, 100, "#eab308", "Moderate"),
-    (100, 150, "#f97316", "Sensitive"),
-    (150, 200, "#ef4444", "Unhealthy"),
+    (100, 150, "#f97316", "Unhealthy"),
+    (150, 200, "#ef4444", "Very Unhealthy"),
     (200, 300, "#7c2d92", "Very Unhealthy"),
     (300, 500, "#450a0a", "Hazardous"),
 ]
@@ -998,7 +998,7 @@ def situation_panel(status, city, message):
             f"Conditions in {city} are {status.lower()}. Routine monitoring continues; "
             "no protective action required for the general population."
         )
-    elif status in ("Sensitive",):
+    elif status in ("Unhealthy",):
         tone, icon, title = "warn", "alert", "Elevated pollution detected"
         body = (
             f"Levels in {city} are {status.lower()} — children, the elderly and people "
